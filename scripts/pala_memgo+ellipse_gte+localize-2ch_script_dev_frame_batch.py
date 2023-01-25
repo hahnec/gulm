@@ -1,5 +1,5 @@
 import sys
-sys.path.append('../../')
+sys.path.append('../')
 
 import scipy.io
 from scipy import signal
@@ -127,9 +127,6 @@ for dat_num in range(1, cfg.dat_num):
     pos_fname = rel_path / 'PALA_InSilicoFlow_v3_pos_Tracks_dt.mat'
     pos_mat = scipy.io.loadmat(pos_fname)
 
-    #alt_fname = rel_path / 'Results' / 'PALA_InSilicoFlow_Tracks_multi_60dB.mat'#PALA_InSilicoFlow_Stats_multi60dB.mat'#PALA_InSilicoFlow_MatOut_multi_60dB.mat'
-    #alt_mat = scipy.io.loadmat(alt_fname)
-
     res_fname = rel_path / 'Results' / 'matlab_wo_noise' / ('PALA_InSilicoFlow_raw_'+str(dat_num)+'.mat')   #.zfill(3)
     res_mat = scipy.io.loadmat(res_fname)
 
@@ -202,7 +199,6 @@ for dat_num in range(1, cfg.dat_num):
     beta = 1e-8
     width = param.xe[-1]-param.xe[0]    # extent of the phased-array
     vsource = [-width*np.cos(param.angles_list[cfg.wave_idx]) * np.sin(param.angles_list[cfg.wave_idx])/beta, -width*np.cos(param.angles_list[cfg.wave_idx])**2/beta]
-    #vsource, width = InSilicoDataset.get_vsource(metadata, tx_idx=wave_idx)
     nonplanar_tdx = np.hypot((abs(vsource[0])-width/2)*(abs(vsource[0])>width/2), vsource[1])
     src_vec = np.array([vsource[0], vsource[1]])
 
@@ -295,14 +291,13 @@ for dat_num in range(1, cfg.dat_num):
                 idcs_cch = (memgo_feats[ch_idcs, ..., 1] > 0)
 
                 # take only most confident components
-                #idcs_valid = np.argsort(conf[ch_idcs, idcs_cch])[-8:]   #idcs_valid = conf[ch_idx, idcs_cch] > np.nanmean(conf) /2   #
                 comp_num = min(conf.shape[1], cfg.comp_max)
                 idcs_valid = np.argsort(conf[ch_idcs, :], axis=-1)[:, -comp_num:]
 
                 comps_cch = memgo_feats[ch_idcs[:, None], idcs_valid]
 
                 # get central transducers ToA
-                cch_dif = t[echo_list[ch_idcs[:, None], idcs_valid, 1].astype(int)] - comps_cch[..., 1] #if idx_cch < len(echo_list[ch_idx+000000]) else 0#t[np.argmax(emg_envelope_model(*comp_cch[:4], x=t.numpy()))] - comp_cch[1]
+                cch_dif = t[echo_list[ch_idcs[:, None], idcs_valid, 1].astype(int)] - comps_cch[..., 1]
                 toas_cch = (comps_cch[..., 1]+cch_dif+param.t0) * param.c + nonplanar_tdx
                 cch_sample, cch_grad = get_amp_grad(data_arr, toas_cch, np.zeros(toas_cch.shape), ch_idcs[:, None])
                 toas_cch -= 0.00001*cfg.shift_factor
@@ -316,23 +311,21 @@ for dat_num in range(1, cfg.dat_num):
                 lch_cidx = np.argmin(abs(np.repeat(comps_cch[..., 1][..., None], memgo_feats.shape[1], axis=-1) - memgo_feats[ch_idcs-tx_gap, :, 1][:, None]), axis=-1)
                 rch_cidx = np.argmin(abs(np.repeat(comps_cch[..., 1][..., None], memgo_feats.shape[1], axis=-1) - memgo_feats[ch_idcs+tx_gap, :, 1][:, None]), axis=-1)
 
-                #matches = np.repeat(np.linspace(-1, 1, 3)[:, None], 2, axis=1).astype('int')
-                #(np.repeat(lch_cidx[:, None], 3, axis=-1) + np.linspace(-1, 1, 3).astype('int')).flatten()
                 lch_idcs = (np.repeat(lch_cidx[..., None], 3, axis=-1) + np.linspace(-1, 1, 3).astype('int')).reshape(lch_cidx.shape[0], -1)
                 rch_idcs = (np.repeat(rch_cidx[..., None], 3, axis=-1) + np.linspace(-1, 1, 3).astype('int')).reshape(rch_cidx.shape[0], -1)
                 echo_per_sch = 3
                 
                 # find comp index outliers (<0 or >num)
                 # tbd = -1
-                lch_idcs[(0>lch_idcs) | (lch_idcs>memgo_feats.shape[1]-1)] = 0#min(lch_idcs[(0<lch_idcs) | (lch_idcs<len(memgo_feats[ch_idx-tx_gap, ...]))])
-                rch_idcs[(0>rch_idcs) | (rch_idcs>memgo_feats.shape[1]-1)] = 0#min(rch_idcs[(0<rch_idcs) | (rch_idcs<len(memgo_feats[ch_idx+tx_gap, ...]))])
+                lch_idcs[(0>lch_idcs) | (lch_idcs>memgo_feats.shape[1]-1)] = 0
+                rch_idcs[(0>rch_idcs) | (rch_idcs>memgo_feats.shape[1]-1)] = 0
 
                 # prepare direct neighbour combinations
                 comps_lch = memgo_feats[(ch_idcs-tx_gap)[:, None], lch_idcs]
                 comps_rch = memgo_feats[(ch_idcs+tx_gap)[:, None], rch_idcs]
 
-                lch_difs = t[echo_list[(ch_idcs-tx_gap)[:, None], lch_idcs, 1].astype(int)] - comps_lch[..., 1] #if idx_lch < len(echo_list[ch_idx-tx_gap]) else 0#t[np.argmax(emg_envelope_model(*comp_lch[:4], x=t.numpy()))] - comp_lch[1]
-                rch_difs = t[echo_list[(ch_idcs+tx_gap)[:, None], rch_idcs, 1].astype(int)] - comps_rch[..., 1] #if idx_rch < len(echo_list[ch_idx+tx_gap]) else 0#t[np.argmax(emg_envelope_model(*comp_rch[:4], x=t.numpy()))] - comp_rch[1]
+                lch_difs = t[echo_list[(ch_idcs-tx_gap)[:, None], lch_idcs, 1].astype(int)] - comps_lch[..., 1]
+                rch_difs = t[echo_list[(ch_idcs+tx_gap)[:, None], rch_idcs, 1].astype(int)] - comps_rch[..., 1]
 
                 # convert overall time-of-arrival distance
                 toas_lch = (comps_lch[..., 1]+lch_difs+param.t0) * param.c + nonplanar_tdx
@@ -382,9 +375,7 @@ for dat_num in range(1, cfg.dat_num):
                     adj_vecs[0], adj_vecs[1],
                 )
 
-                #print('1: %s' % str(time.time()-start))
                 spts, _ = ell_intersector.get_intersection_multiple()
-                #print('2: %s' % str(time.time()-start))
                 spts /= cfg.num_scale
                 pts_mask = (min(param.x) < spts[..., 0]) & (spts[..., 0] < max(param.x)) & (min(param.z) < spts[..., 1]) & (spts[..., 1] < max(param.z))
                 pts = spts[pts_mask]
@@ -404,19 +395,15 @@ for dat_num in range(1, cfg.dat_num):
                     idx_pars = np.argmin(abs(mu_pars[:, None] - memgo_feats[par_ch_idcs, :, 1]), axis=-1)
                     comp_pars = memgo_feats[par_ch_idcs, idx_pars, :]
 
-                    echo_pars = t[echo_list[par_ch_idcs, idx_pars, 1].astype(int)]  #np.array([t[echo_list[par_ch_idx, echo_idx, 1].astype(int)] if echo_idx < len(echo_list[par_ch_idx]) else 0 for (par_ch_idx, echo_idx) in zip(par_ch_idcs, idx_pars)])
+                    echo_pars = t[echo_list[par_ch_idcs, idx_pars, 1].astype(int)]
                     par_difs = echo_pars - comp_pars[:, 1]
                     toa_pars = (comp_pars[:, 1]+par_difs+param.t0) * param.c + nonplanar_tdx
                     
                     # comp_cch indices to which each comp_par belongs to
-                    #cch_idx_pars = np.concatenate([np.repeat(np.arange(len(ch_idcs)), echo_cch_num*echo_per_sch), np.repeat(np.arange(len(ch_idcs)), echo_cch_num*echo_per_sch)])[pts_mask_num]
                     cch_idx_pars = np.concatenate([np.repeat(np.arange(echo_cch_num), echo_per_sch), np.repeat(np.arange(echo_cch_num), echo_per_sch)])
-                    #cch_idx_pars = np.repeat(cch_idx_pars[None, :], len(ch_idcs), axis=0) + np.repeat(np.arange(len(ch_idcs))[:, None], 6*8, axis=-1)
-                    cch_idx_pars = np.repeat(cch_idx_pars[None, :], len(ch_idcs), axis=0)#.flatten() + 14*np.concatenate([np.repeat(np.arange(len(ch_idcs))[:, None], 3*8, axis=-1).flatten(), np.repeat(np.arange(len(ch_idcs))[:, None], 3*8, axis=-1).flatten()])
-                    #cch_idx_pars = cch_idx_pars.flatten()[pts_mask_num]
-                    s = np.array([comp_cch[cch_idx_par] for (comp_cch, cch_idx_par) in zip(comps_cch, cch_idx_pars)]).reshape(-1, 6)
+                    cch_idx_pars = np.repeat(cch_idx_pars[None, :], len(ch_idcs), axis=0)
 
-                    phi_shift_pars = comp_pars[:, 5] - s[pts_mask_num, 5]#comps_cch.reshape(-1, 6)[cch_idx_pars, 5]####
+                    phi_shift_pars = comp_pars[:, 5] - s[pts_mask_num, 5]
                     cch_sample_par = np.repeat(np.concatenate([cch_sample, cch_sample], axis=-1).flatten(), echo_per_sch)[pts_mask_num]
                     cch_grad_par = np.repeat(np.concatenate([cch_grad, cch_grad], axis=-1).flatten(), echo_per_sch)[pts_mask_num]
                     phi_shift_pars = get_overall_phase_shift(data_arr, toa_pars, phi_shift_pars, par_ch_idcs, cfg.ch_gap, cch_sample_par, cch_grad_par)
@@ -520,12 +507,9 @@ for dat_num in range(1, cfg.dat_num):
             all_pts = np.vstack(all_pts)
             rej_pts = np.vstack(rej_pts)
 
-            #print('3: %s' % str(time.time()-start))
             ms.fit(all_pts[:, :2])
             labels = ms.labels_
             cluster_centers = ms.cluster_centers_
-
-            #print('4: %s' % str(time.time()-start))
 
             labels_unique = np.unique(labels)
             n_clusters_ = len(labels_unique)
@@ -541,8 +525,6 @@ for dat_num in range(1, cfg.dat_num):
                 idx = np.argmin(np.sum((all_pts[l==labels][:, :2] - label_xy_mean)**2, axis=-1))
 
                 if sum(l==labels) > cfg.cluster_number: reduced_pts.append(all_pts[l==labels][idx])
-
-            #print('7: %s' % str(time.time()-start))
 
             print('Frame time: %s' % str(time.time()-start))
 
