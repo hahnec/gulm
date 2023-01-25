@@ -403,6 +403,7 @@ for dat_num in range(1, cfg.dat_num):
                     # comp_cch indices to which each comp_par belongs to
                     cch_idx_pars = np.concatenate([np.repeat(np.arange(echo_cch_num), echo_per_sch), np.repeat(np.arange(echo_cch_num), echo_per_sch)])
                     cch_idx_pars = np.repeat(cch_idx_pars[None, :], len(ch_idcs), axis=0)
+                    s = np.array([comp_cch[cch_idx_par] for (comp_cch, cch_idx_par) in zip(comps_cch, cch_idx_pars)]).reshape(-1, 6)
 
                     phi_shift_pars = comp_pars[:, 5] - s[pts_mask_num, 5]
                     cch_sample_par = np.repeat(np.concatenate([cch_sample, cch_sample], axis=-1).flatten(), echo_per_sch)[pts_mask_num]
