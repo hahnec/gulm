@@ -32,4 +32,4 @@ cd ~/02_pace/pulm/scripts/rethink_ulm
 python -c "import torch; print(torch.cuda.is_available())"
 
 echo "Channel gap: ${ch_gap}, Upsampling factor: ${enlarge_factor}, Cluster number:${cluster_number}, Max-iter: ${max_iter}"
-python ./pala_memgo+ellipsoid+localize-2ch_script.py ch_gap=${ch_gap} enlarge_factor=${enlarge_factor} cluster_number=${cluster_number} max_iter=${max_iter} dat_num=2
+python ../scripts/pala_memgo+ellipse_gte+localize-2ch_script_dev_frame_batch.py ch_gap=${ch_gap} enlarge_factor=${enlarge_factor} cluster_number=${cluster_number} max_iter=${max_iter} dat_num=2
