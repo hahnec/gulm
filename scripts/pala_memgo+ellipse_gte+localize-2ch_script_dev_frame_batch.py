@@ -277,9 +277,9 @@ for dat_num in range(1, cfg.dat_num):
 
             start = time.time()
             # select channel
-            all_pts = []
-            rej_pts = []
-            acc_pts = []
+            all_pts_list = []
+            rej_pts_list = []
+            acc_pts_list = []
             feats = []
             # iterate over transducer gaps (different baselines in parallax terms)
             for tx_gap in cfg.tx_gaps:
@@ -418,8 +418,8 @@ for dat_num in range(1, cfg.dat_num):
                     dist_pars = np.ones(pts.shape[0])*float('NaN')
                     valid = np.ones(pts.shape[0], dtype=bool)
 
-                if pts.size > 0: all_pts.append(np.array([pts[valid, 0], pts[valid, 1]]).T)
-                if pts.size > 0: rej_pts.append(np.array([pts[~valid, 0], pts[~valid, 1]]).T)
+                if pts.size > 0: all_pts_list.append(np.array([pts[valid, 0], pts[valid, 1]]).T)
+                if pts.size > 0: rej_pts_list.append(np.array([pts[~valid, 0], pts[~valid, 1]]).T)
 
                 if cfg.plt_comp_opt:
                     
@@ -506,8 +506,8 @@ for dat_num in range(1, cfg.dat_num):
                         plt.tight_layout()
                         plt.show()
 
-            all_pts = np.vstack(all_pts)
-            rej_pts = np.vstack(rej_pts)
+            all_pts = np.vstack(all_pts_list)
+            rej_pts = np.vstack(rej_pts_list)
 
             ms.fit(all_pts[:, :2])
             labels = ms.labels_
@@ -526,7 +526,7 @@ for dat_num in range(1, cfg.dat_num):
                 label_xy_mean = np.mean(all_pts[l==labels], axis=0)[:2]
                 idx = np.argmin(np.sum((all_pts[l==labels][:, :2] - label_xy_mean)**2, axis=-1))
 
-                if sum(l==labels) > cfg.cluster_number: reduced_pts.append(all_pts[l==labels][idx])
+                if sum(l==labels) > cfg.cluster_number: reduced_pts.append(all_pts[l==labels][idx]) #label_xy_mean)#
 
             print('Frame time: %s' % str(time.time()-start))
 
@@ -593,9 +593,12 @@ for dat_num in range(1, cfg.dat_num):
                 ax2.plot(np.array(reduced_pts)[:, 0]/param.wavelength-PData['Origin'][0], np.array(reduced_pts)[:, 1]/param.wavelength-PData['Origin'][2], 'c+', label='selected')
                 ax2.plot(ref_xpos-PData['Origin'][0], ref_zpos-PData['Origin'][2], 'bx', label=ulm_method)
                 ax2.legend()
-                for i, l in enumerate(labels_unique):
-                    if sum(l==labels) > cfg.cluster_number: ax1.plot(all_pts[:, 0][l==labels], all_pts[:, 1][l==labels], marker='.', linestyle='', color=['brown', 'pink', 'yellow', 'white', 'gray', 'violet', 'green', 'blue'][i%8])
-
+                #for i, l in enumerate(labels_unique):
+                #    if sum(l==labels) > cfg.cluster_number: 
+                #        ax1.plot(all_pts[:, 0][l==labels], all_pts[:, 1][l==labels], marker='.', linestyle='', color=['brown', 'pink', 'yellow', 'white', 'gray', 'violet', 'green', 'blue'][i%8])
+                for i, tx_gap_pts in enumerate(all_pts_list):
+                    ax1.plot(tx_gap_pts[:, 0], tx_gap_pts[:, 1], marker='.', linestyle='', color=['brown', 'pink', 'yellow', 'white', 'gray', 'cyan', 'green', 'blue'][i%8], label=str(cfg.tx_gaps[i]))
+                ax1.legend()
                 plt.show()
 
 # total errors over all frames
