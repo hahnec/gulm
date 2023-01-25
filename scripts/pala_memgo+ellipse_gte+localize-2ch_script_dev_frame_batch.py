@@ -375,11 +375,12 @@ for dat_num in range(1, cfg.dat_num):
                     adj_vecs[0], adj_vecs[1],
                 )
 
-                spts, _ = ell_intersector.get_intersection_multiple()
+                spts, valid_intersects = ell_intersector.get_intersection_multiple()
                 spts /= cfg.num_scale
                 pts_mask = (min(param.x) < spts[..., 0]) & (spts[..., 0] < max(param.x)) & (min(param.z) < spts[..., 1]) & (spts[..., 1] < max(param.z))
                 pts = spts[pts_mask]
                 pts_mask_num = np.any(pts_mask > 0, axis=1)
+                pts_mask_num &= valid_intersects
 
                 pts_idcs = ~np.repeat(np.dstack([np.ones_like(ch_idcs), np.zeros_like(ch_idcs)]).flatten(), echo_per_sch*comp_num).astype(bool)[pts_mask_num]
                 
