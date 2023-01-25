@@ -13,12 +13,11 @@
 #SBATCH --gres=gpu:1
 #SBATCH --array=1-10%1
 
-module load Python/3.8.6-GCCcore-10.2.0
-#module load CUDA/11.3.0-GCC-10.2.0
-#module load cuDNN/8.2.0.53-CUDA-11.3.0
-#module load Workspace
+source ~/21_rethink_ulm/venv/bin/activate
 
-source ~/02_pace/pulm/venv/bin/activate
+cd ~/21_rethink_ulm/scripts
+
+python -c "import torch; print(torch.cuda.is_available())"
 
 param_store=param.txt
 
@@ -27,9 +26,9 @@ enlarge_factor=$(cat $param_store | awk -v var=$SLURM_ARRAY_TASK_ID 'NR==var {pr
 cluster_number=$(cat $param_store | awk -v var=$SLURM_ARRAY_TASK_ID 'NR==var {print $3}')
 max_iter=$(cat $param_store | awk -v var=$SLURM_ARRAY_TASK_ID 'NR==var {print $4}')
 
-cd ~/02_pace/pulm/scripts/rethink_ulm
+cd ~/21_rethink_ulm/scripts/
 
 python -c "import torch; print(torch.cuda.is_available())"
 
 echo "Channel gap: ${ch_gap}, Upsampling factor: ${enlarge_factor}, Cluster number:${cluster_number}, Max-iter: ${max_iter}"
-python ../scripts/pala_memgo+ellipse_gte+localize-2ch_script_dev_frame_batch.py ch_gap=${ch_gap} enlarge_factor=${enlarge_factor} cluster_number=${cluster_number} max_iter=${max_iter} dat_num=2
+python ./pala_memgo+ellipse_gte+localize-2ch_script_dev_frame_batch.py ch_gap=${ch_gap} enlarge_factor=${enlarge_factor} cluster_number=${cluster_number} max_iter=${max_iter} dat_num=2
