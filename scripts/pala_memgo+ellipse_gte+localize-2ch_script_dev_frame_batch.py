@@ -666,3 +666,11 @@ if cfg.logging:
     wandb.save(str(output_path / 'logged_errors.csv'))
 if cfg.save_opt: 
     np.savetxt(str(output_path / 'logged_errors.csv'), np.array(acc_pace_errs), delimiter=',')
+
+    pace_ulm_img, pace_vel_map = render_ulm(data_path=str(output_path), expr='pace', plot_opt=False)
+    pala_ulm_img, pala_vel_map = render_ulm(data_path=str(output_path), expr='pala', plot_opt=False)
+    if cfg.logging: 
+        wandb.log({"pace_ulm_img": wandb.Image(pace_ulm_img)})
+        wandb.log({"pace_vel_map": wandb.Image(pace_vel_map)})
+        wandb.log({"pala_ulm_img": wandb.Image(pala_ulm_img)})
+        wandb.log({"pala_vel_map": wandb.Image(pala_vel_map)})
