@@ -544,7 +544,7 @@ for dat_num in range(1, cfg.dat_num):
                         ax2.plot(np.stack([mu_cch * param.fs * cfg.enlarge_factor,]*2), [dmin, dmax], color='red')
                         ax3.plot(np.stack([(sch_comps[k] - sch_phi_shifts[k]/(2*np.pi*param.fs)) * param.fs * cfg.enlarge_factor,]*2), [dmin, dmax], color='red')
                         
-                        #[ax2, ax4][~pt_idx].plot(np.stack([((toa_pars[k]-nonplanar_tdx)/param.c-param.t0) * param.fs * cfg.enlarge_factor,]*2), [min(result[par_ch_idcs[k], :]), max(result[par_ch_idcs[k], :])], color='pink', linestyle='dashdot', linewidth=2)
+                        #ax3.plot(np.stack([((toa_pars[k]-nonplanar_tdx)/param.c-param.t0) * param.fs * cfg.enlarge_factor,]*2), [min(result[par_ch_idcs[k], :]), max(result[par_ch_idcs[k], :])], color='pink', linestyle='dashdot', linewidth=2)
                         plt.tight_layout(pad=1.8)
                         plt.show()
 
