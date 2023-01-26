@@ -15,7 +15,7 @@ intersect_method: 'gt'
 phase_refinement_opt: True
 radial_offset_method: 'off'
 parity_opt: True
-echo_treshold: 0.0825
+echo_threshold: 0.0825
 dist_par_threshold: 0.5
 shift_factor: 3.4 #4.0
 
