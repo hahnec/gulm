@@ -9,5 +9,5 @@ git clone --recurse-submodules git@github.com:hahnec/multimodal_emg_private mult
 git clone --recurse-submodules git@github.com:hahnec/simple_tracker simple_tracker_repo
 python3 -m pip install -r multimodal_emg_repo/requirements.txt
 
-ln -sf ../multimodal_emg_repo/multimodal_emg multimodal_emg
-ln -sf ../simple_tracker_repo/simple_tracker simple_tracker
+ln -sf ./multimodal_emg_repo/multimodal_emg multimodal_emg
+ln -sf ./simple_tracker_repo/simple_tracker simple_tracker
