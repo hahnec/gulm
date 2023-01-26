@@ -104,6 +104,12 @@ if cfg.logging:
 output_path = script_path / 'other_frames'
 if cfg.save_opt and not output_path.exists(): output_path.mkdir()
 
+if cfg.plt_comp_opt or cfg.plt_frame_opt:
+    plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "Helvetica"
+    })
+
 rel_path = Path(cfg.data_dir)
 
 # initialize intersector
@@ -452,7 +458,7 @@ for dat_num in range(1, cfg.dat_num):
 
                         ax1.imshow(bmode[::-1, ...], vmin=bmode_limits[0], vmax=bmode_limits[1], extent=extent, aspect=aspect**-1, cmap='gray')
                         ax1.set_facecolor('#000000')
-                        ax1.plot((ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength, 'bx', label='Radial symmetry')#ulm_method)
+                        ax1.plot((ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength, 'b+', label='Radial symmetry')#ulm_method)
                         ax1.plot(xpos[~np.isnan(xpos)], zpos[~np.isnan(zpos)], 'rx', label='Ground truth')
                         ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=5, label='Transducer plane')
                         xzc = np.array([cen_cens[:, pts_mask_num][:, k][0], cen_cens[:, pts_mask_num][:, k][1]]) / cfg.num_scale
@@ -461,8 +467,8 @@ for dat_num in range(1, cfg.dat_num):
                         ax1.set_xlabel('Lateral domain $x$ [m]')
                         ax1.set_ylabel('Axial distance $z$ [m]')
 
-                        ax1.plot(pt[0], pt[1], '+', color='cyan', label='intersections')
-                        ax1.text(pt[0], pt[1], s=str(dist_pars[k]), color='w')
+                        ax1.plot(pt[0], pt[1], '1', color='cyan', markersize=12, label='Ellipse intersection')
+                        #ax1.text(pt[0], pt[1], s=str(dist_pars[k]), color='w')
                         ax1.legend()
 
                         mu_cch = np.repeat(np.repeat(comps_cch[..., 1], echo_per_sch, axis=1), 2, axis=0).flatten()[pts_mask_num][k] * param.fs * cfg.enlarge_factor
@@ -485,36 +491,38 @@ for dat_num in range(1, cfg.dat_num):
                             vector_b = np.longdouble([0, -1])#np.longdouble([vsource[0], vsource[1]])
                             angle_deg = np.arccos(np.dot(vector_a, vector_b) / (np.linalg.norm(vector_a) * np.linalg.norm(vector_b))) / np.pi * 180
                             angle_deg *= np.sign(vsource[0]-cen[0]) * np.sign(vsource[0]+np.spacing(1)) #-1 *np.sign(param.xe[el_idx*cfg.ch_gap])
-                            ell = Ellipse(xy=xz, width=2*minor_axis_radius, height=2*major_axis_radius, angle=angle_deg, edgecolor=color, fc='None')
+                            ell = Ellipse(xy=xz, width=2*minor_axis_radius, height=2*major_axis_radius, angle=angle_deg, edgecolor=color, fc='None', rasterized=True)
                             ax1.add_artist(ell)
 
                             # plot detected mu echoes param
                             mus_samples = np.stack([(memgo_feats[el_idx, :, 1]) * param.fs * cfg.enlarge_factor,]*2)
-                            mus_ys = np.stack([np.array([min(data_arr[:, el_idx]), max(data_arr[:, el_idx])]),]*memgo_feats.shape[-2]).T
+                            mus_ys = np.stack([np.array([dmin, dmax]),]*memgo_feats.shape[-2]).T
                             ax.plot(mus_samples, mus_ys, color='gray')
                             ax.plot([[e[1] for e in echo_list[el_idx]], [e[1] for e in echo_list[el_idx]]], mus_ys[:, :len(echo_list[el_idx])], color='k')
 
                             # plot data and fitted result
-                            ax.plot(np.abs(signal.hilbert(data_arr[:, el_idx])), label='Hilbert channel %s' % el_idx, color=color, alpha=.4)
-                            ax.plot(data_arr[:, el_idx], label='Receive element %s' % el_idx, color=color)
-                            ax.plot(result[el_idx, ...], label='Fitted %s' % el_idx, color='black', linestyle='dashed')
+                            ax.plot(np.abs(signal.hilbert(data_arr[:, el_idx])), label='Envelope', color='gray', alpha=.4)
+                            ax.plot(data_arr[:, el_idx], label='Raw signal', color=color)
+                            ax.plot(result[el_idx, ...], label='Reconstructed', color='black', linestyle='dashed', linewidth=1)
 
                             ax.set_xlabel('Radial distance $r$ [samples]')
-                            ax.set_ylabel('Amplitude $A(r)$ [a.u.]')
-                            ax.set_xlim([mu_cch-1000, mu_cch+1000])
+                            ax.set_ylabel('Amplitude $A_{%s}(r)$ [a.u.]' % el_idx)
+                            ax.set_xlim([mu_cch-500, mu_cch+500])
                             ax.grid(True)
-                            ax.legend()
 
                             # plot rx trajectory
-                            ax1.plot([param.xe[el_idx*cfg.ch_gap], pt[0]], [0, pt[1]], color, linestyle='dashed', label='receive trajectory of element %s' % el_idx)
+                            ax1.plot([param.xe[el_idx*cfg.ch_gap], pt[0]], [0, pt[1]], color, linestyle='dashed', label='Receive trajectory channel %s' % el_idx)
                             ax1.legend()
 
                         # plot components
-                        ax2.plot(np.stack([mu_cch,]*2), [dmin, dmax], color='red')
-                        ax3.plot(np.stack([(sch_comps[k] - sch_phi_shifts[k]/(2*np.pi*param.fs)) * param.fs * cfg.enlarge_factor,]*2), [dmin, dmax], color='red')
-                        
+                        ax2.plot(np.stack([mu_cch,]*2), [dmin, dmax], color='red', label='Time-of-Arrival')
+                        ax3.plot(np.stack([(sch_comps[k] - sch_phi_shifts[k]/(2*np.pi*param.fs)) * param.fs * cfg.enlarge_factor,]*2), [dmin, dmax], color='red', label='Time-of-Arrival')
+                        ax2.legend(loc='upper left')
+                        ax3.legend(loc='upper left')
+
                         #ax3.plot(np.stack([((toa_pars[k]-nonplanar_tdx)/param.c-param.t0) * param.fs * cfg.enlarge_factor,]*2), [min(result[par_ch_idcs[k], :]), max(result[par_ch_idcs[k], :])], color='pink', linestyle='dashdot', linewidth=2)
                         plt.tight_layout(pad=1.8)
+                        plt.savefig('./components_plot.pdf', format='pdf', backend='pdf', dpi=300)
                         plt.show()
 
             all_pts = np.vstack(all_pts_list)
