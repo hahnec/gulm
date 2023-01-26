@@ -421,12 +421,54 @@ for dat_num in range(1, cfg.dat_num):
                 if pts.size > 0: all_pts_list.append(np.array([pts[valid, 0], pts[valid, 1]]).T)
                 if pts.size > 0: rej_pts_list.append(np.array([pts[~valid, 0], pts[~valid, 1]]).T)
 
+                if cfg.parity_opt:
+                    # parity toa distance of neighbor transducer
+                    par_ch_idcs = np.repeat(np.dstack([ch_idcs+tx_gap, ch_idcs-tx_gap]).flatten(), echo_per_sch*comp_num)[pts_mask_num]
+                    
+                    tx_pos = np.vstack([param.xe[par_ch_idcs*cfg.ch_gap], np.zeros(par_ch_idcs.shape[0])]).T
+                    virtual_tdx = np.hypot(pts[:, 0]-vsource[0], pts[:, 1]-vsource[1])
+                    dtx = virtual_tdx - nonplanar_tdx
+                    mu_pars = (np.linalg.norm(pts-tx_pos, axis=-1)+dtx) / param.c - param.t0
+
+                    idx_pars = np.argmin(abs(mu_pars[:, None] - memgo_feats[par_ch_idcs, :, 1]), axis=-1)
+                    comp_pars = memgo_feats[par_ch_idcs, idx_pars, :]
+
+                    echo_pars = t[echo_list[par_ch_idcs, idx_pars, 1].astype(int)]
+                    par_difs = echo_pars - comp_pars[:, 1]
+                    toa_pars = (comp_pars[:, 1]+par_difs+param.t0) * param.c + nonplanar_tdx
+                    
+                    # comp_cch indices to which each comp_par belongs to
+                    cch_idx_pars = np.concatenate([np.repeat(np.arange(echo_cch_num), echo_per_sch), np.repeat(np.arange(echo_cch_num), echo_per_sch)])
+                    cch_idx_pars = np.repeat(cch_idx_pars[None, :], len(ch_idcs), axis=0)
+                    s = np.array([comp_cch[cch_idx_par] for (comp_cch, cch_idx_par) in zip(comps_cch, cch_idx_pars)]).reshape(-1, 6)
+
+                    phi_shift_pars = comp_pars[:, 5] - s[pts_mask_num, 5]
+                    cch_sample_par = np.repeat(np.concatenate([cch_sample, cch_sample], axis=-1).flatten(), echo_per_sch)[pts_mask_num]
+                    cch_grad_par = np.repeat(np.concatenate([cch_grad, cch_grad], axis=-1).flatten(), echo_per_sch)[pts_mask_num]
+                    phi_shift_pars = get_overall_phase_shift(data_arr, toa_pars, phi_shift_pars, par_ch_idcs, cfg.ch_gap, cch_sample_par, cch_grad_par)
+
+                    toa_pars -= phi_shift_pars/(2*np.pi*param.fs) * param.c
+                    dist_pars = abs((toa_pars-nonplanar_tdx)/param.c-param.t0 - mu_pars) * param.fs
+
+                    valid = dist_pars < cfg.dist_par_threshold  # .5
+                else:
+                    dist_pars = np.ones(pts.shape[0])*float('NaN')
+                    valid = np.ones(pts.shape[0], dtype=bool)
+
+                if pts.size > 0: all_pts.append(np.array([pts[valid, 0], pts[valid, 1]]).T)
+                if pts.size > 0: rej_pts.append(np.array([pts[~valid, 0], pts[~valid, 1]]).T)
+
                 if cfg.plt_comp_opt:
                     
                     cch_idcs_flat = np.repeat(np.repeat(np.repeat(ch_idcs, comp_num).reshape(-1, comp_num), echo_per_sch, axis=1), 2, axis=0).flatten()[pts_mask_num]
                     sch_idcs_flat = np.repeat(np.dstack([ch_idcs-tx_gap, ch_idcs+tx_gap]).flatten(), echo_per_sch*comp_num)[pts_mask_num]
-                    sch_comps = memgo_feats[sch_idcs_flat, idx_pars, :]
+                    
+                    cor_ch_idcs = np.repeat(np.dstack([ch_idcs-tx_gap, ch_idcs+tx_gap]).flatten(), echo_per_sch*comp_num)[pts_mask_num]
+                    nidx_pars = np.argmin(abs(mu_pars[:, None] - memgo_feats[cor_ch_idcs, :, 1]), axis=-1)
+                    sch_comps = memgo_feats[sch_idcs_flat, nidx_pars, :]
                     sch_phi_shifts = np.dstack([phi_shifts_lch, phi_shifts_rch]).swapaxes(1, -1).flatten()[pts_mask_num]
+                    sch_phi_shifts = np.array([phi_shifts_lch, phi_shifts_rch]).flatten()[pts_mask_num]
+                    sch_comps = np.array([comps_lch[..., 1], comps_rch[..., 1]]).flatten()[pts_mask_num]
 
                     for k, pt in enumerate(pts):
 
@@ -445,8 +487,9 @@ for dat_num in range(1, cfg.dat_num):
                         ax1.plot((ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength, 'bx', label=ulm_method)
                         ax1.plot(xpos[~np.isnan(xpos)], zpos[~np.isnan(zpos)], 'rx', label='ground-truth')
                         ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=5, label='Transducer plane')
-                        ax1.set_ylim([0, max(param.z)])
-                        ax1.set_xlim([min(param.x), max(param.x)])
+                        xzc = np.array([cen_cens[:, pts_mask_num][:, k][0], cen_cens[:, pts_mask_num][:, k][1]]) / cfg.num_scale
+                        ax1.set_ylim([0, max(param.z)])#ax1.set_ylim([min(xzc), max(abs(xzc))])#
+                        ax1.set_xlim([min(param.x), max(param.x)])#ax1.set_xlim([min(xzc), max(abs(xzc))])#
                         ax1.set_xlabel('Lateral domain $x$ [m]')
                         ax1.set_ylabel('Axial distance $z$ [m]')
 
@@ -454,7 +497,7 @@ for dat_num in range(1, cfg.dat_num):
                         ax1.text(pt[0], pt[1], s=str(dist_pars[k]), color='w')
                         ax1.legend()
 
-                        # when is index k for left channel when of right? answer: pts_idcs
+                        # when is index k for left channel and when for right? answer: pts_idcs
                         pts_idx = int(pts_idcs[k])
                         for j, (ax, cen, val, vec, color) in enumerate(zip([ax3]+[[ax2, ax4][pts_idx]], [cen_cens[:, pts_mask_num][:, k], adj_cens[:, pts_mask_num][:, k]], [cen_vals[:, pts_mask_num][:, k], adj_vals[:, pts_mask_num][:, k]], [cen_vecs[:, pts_mask_num][:, k], adj_vecs[:, pts_mask_num][:, k]], ['g']+[['b', 'y'][pts_idx]])):
                             
@@ -463,14 +506,15 @@ for dat_num in range(1, cfg.dat_num):
                             dmin = min([min(data_arr[:, cch_idcs_flat[k]]), min(data_arr[:, sch_idcs_flat[k]])])
                                 
                             # ellipse plot
-                            major_axis_radius = np.linalg.norm(vec*val[0] / cfg.num_scale) 
-                            minor_axis_radius = np.linalg.norm(vec*val[1] / cfg.num_scale) 
+                            #val -= 0.00001*cfg.shift_factor*cfg.num_scale/2
+                            major_axis_radius = np.linalg.norm(vec*val[0] / cfg.num_scale)
+                            minor_axis_radius = np.linalg.norm(vec*val[1] / cfg.num_scale)
                             xz = np.array([cen[0], cen[1]]) / cfg.num_scale
                             # use float128 as small angles yield zero otherwise
                             vector_a = np.longdouble([(param.xe[el_idx*cfg.ch_gap] - vsource[0]), vsource[1]])
-                            vector_b = np.longdouble([vsource[0], vsource[1]])
+                            vector_b = np.longdouble([0, -1])#np.longdouble([vsource[0], vsource[1]])
                             angle_deg = np.arccos(np.dot(vector_a, vector_b) / (np.linalg.norm(vector_a) * np.linalg.norm(vector_b))) / np.pi * 180
-                            angle_deg *= -1*np.sign(param.xe[el_idx*cfg.ch_gap])
+                            angle_deg *= np.sign(vsource[0]-cen[0]) * np.sign(vsource[0]+np.spacing(1)) #-1 *np.sign(param.xe[el_idx*cfg.ch_gap])
                             ell = Ellipse(xy=xz, width=2*minor_axis_radius, height=2*major_axis_radius, angle=angle_deg, edgecolor=color, fc='None')
                             ax1.add_artist(ell)
 
@@ -485,7 +529,7 @@ for dat_num in range(1, cfg.dat_num):
                             ax.plot(data_arr[:, el_idx], label='Receive element %s' % el_idx, color=color)
                             ax.plot(result[el_idx, ...], label='Fitted %s' % el_idx, color='black', linestyle='dashed')
 
-                            ax.set_xlim([0, len(data_arr[:, el_idx])])
+                            #ax.set_xlim([0, len(data_arr[:, el_idx])])
                             #ax.set_xlim([0, max(param.z)])
                             ax.set_xlabel('Axial distance $z$ [samples]')
                             ax.set_ylabel('Amplitude $A(z)$ [a.u.]')
@@ -498,12 +542,12 @@ for dat_num in range(1, cfg.dat_num):
 
                         # plot components
                         sax = [ax2, ax4][pts_idx]
-                        sax.plot(np.stack([(sch_comps[k, 1] - sch_phi_shifts[k]/(2*np.pi*param.fs)) * param.fs * cfg.enlarge_factor,]*2), [dmin, dmax], color='red')
+                        sax.plot(np.stack([(sch_comps[k] - sch_phi_shifts[k]/(2*np.pi*param.fs)) * param.fs * cfg.enlarge_factor,]*2), [dmin, dmax], color='red')
                         mu_cch = np.repeat(np.repeat(comps_cch[..., 1], echo_per_sch, axis=1), 2, axis=0).flatten()[pts_mask_num][k]
                         ax3.plot(np.stack([mu_cch * param.fs * cfg.enlarge_factor,]*2), [dmin, dmax], color='red')
-
+                        
                         #[ax2, ax4][~pt_idx].plot(np.stack([((toa_pars[k]-nonplanar_tdx)/param.c-param.t0) * param.fs * cfg.enlarge_factor,]*2), [min(result[par_ch_idcs[k], :]), max(result[par_ch_idcs[k], :])], color='pink', linestyle='dashdot', linewidth=2)
-                        plt.tight_layout()
+                        plt.tight_layout(pad=2)
                         plt.show()
 
             all_pts = np.vstack(all_pts_list)
