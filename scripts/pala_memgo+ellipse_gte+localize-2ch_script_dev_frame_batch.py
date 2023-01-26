@@ -465,6 +465,8 @@ for dat_num in range(1, cfg.dat_num):
                         ax1.text(pt[0], pt[1], s=str(dist_pars[k]), color='w')
                         ax1.legend()
 
+                        mu_cch = np.repeat(np.repeat(comps_cch[..., 1], echo_per_sch, axis=1), 2, axis=0).flatten()[pts_mask_num][k] * param.fs * cfg.enlarge_factor
+                        
                         # when is index k for left channel and when for right? answer: pts_idcs
                         pts_idx = int(pts_idcs[k])
                         for j, (ax, cen, val, vec, color) in enumerate(zip([ax2, ax3], [cen_cens[:, pts_mask_num][:, k], adj_cens[:, pts_mask_num][:, k]], [cen_vals[:, pts_mask_num][:, k], adj_vals[:, pts_mask_num][:, k]], [cen_vecs[:, pts_mask_num][:, k], adj_vecs[:, pts_mask_num][:, k]], ['g']+[['b', 'y'][pts_idx]])):
@@ -497,10 +499,9 @@ for dat_num in range(1, cfg.dat_num):
                             ax.plot(data_arr[:, el_idx], label='Receive element %s' % el_idx, color=color)
                             ax.plot(result[el_idx, ...], label='Fitted %s' % el_idx, color='black', linestyle='dashed')
 
-                            #ax.set_xlim([0, len(data_arr[:, el_idx])])
-                            #ax.set_xlim([0, max(param.z)])
-                            ax.set_xlabel('Axial distance $z$ [samples]')
-                            ax.set_ylabel('Amplitude $A(z)$ [a.u.]')
+                            ax.set_xlabel('Radial distance $r$ [samples]')
+                            ax.set_ylabel('Amplitude $A(r)$ [a.u.]')
+                            ax.set_xlim([mu_cch-1000, mu_cch+1000])
                             ax.grid(True)
                             ax.legend()
 
@@ -509,8 +510,7 @@ for dat_num in range(1, cfg.dat_num):
                             ax1.legend()
 
                         # plot components
-                        mu_cch = np.repeat(np.repeat(comps_cch[..., 1], echo_per_sch, axis=1), 2, axis=0).flatten()[pts_mask_num][k]
-                        ax2.plot(np.stack([mu_cch * param.fs * cfg.enlarge_factor,]*2), [dmin, dmax], color='red')
+                        ax2.plot(np.stack([mu_cch,]*2), [dmin, dmax], color='red')
                         ax3.plot(np.stack([(sch_comps[k] - sch_phi_shifts[k]/(2*np.pi*param.fs)) * param.fs * cfg.enlarge_factor,]*2), [dmin, dmax], color='red')
                         
                         #ax3.plot(np.stack([((toa_pars[k]-nonplanar_tdx)/param.c-param.t0) * param.fs * cfg.enlarge_factor,]*2), [min(result[par_ch_idcs[k], :]), max(result[par_ch_idcs[k], :])], color='pink', linestyle='dashdot', linewidth=2)
