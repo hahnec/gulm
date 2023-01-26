@@ -13,6 +13,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --array=1-10%1
 
+module load Python/3.8.6-GCCcore-10.2.0
+
 source ~/21_rethink_ulm/venv/bin/activate
 
 cd ~/21_rethink_ulm/scripts
