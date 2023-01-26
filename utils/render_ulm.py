@@ -11,7 +11,7 @@ def render_ulm(data_path=None, method='default', expr='', plot_opt=False):
     # path management
     script_path = Path(__file__).parent.resolve() / 'output_frames'
     data_path = data_path if data_path is not None else script_path
-    fnames = sorted((data_path).iterdir())
+    fnames = sorted(Path(data_path).iterdir())
     assert len(fnames) > 0, 'No files found'
 
     # load frame data
