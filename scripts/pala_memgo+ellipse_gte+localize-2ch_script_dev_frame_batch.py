@@ -455,8 +455,8 @@ for dat_num in range(1, cfg.dat_num):
                     dist_pars = np.ones(pts.shape[0])*float('NaN')
                     valid = np.ones(pts.shape[0], dtype=bool)
 
-                if pts.size > 0: all_pts.append(np.array([pts[valid, 0], pts[valid, 1]]).T)
-                if pts.size > 0: rej_pts.append(np.array([pts[~valid, 0], pts[~valid, 1]]).T)
+                if pts.size > 0: all_pts_list.append(np.array([pts[valid, 0], pts[valid, 1]]).T)
+                if pts.size > 0: rej_pts_list.append(np.array([pts[~valid, 0], pts[~valid, 1]]).T)
 
                 if cfg.plt_comp_opt:
                     
@@ -475,12 +475,11 @@ for dat_num in range(1, cfg.dat_num):
                         if k == 351:
                             print('hold')
 
-                        fig = plt.figure(figsize=(30, 15))
-                        gs = gridspec.GridSpec(3, 2)
+                        fig = plt.figure(figsize=(30/2, 15/2))
+                        gs = gridspec.GridSpec(2, 2)
                         ax1 = plt.subplot(gs[:, 0])
                         ax2 = plt.subplot(gs[0, 1])
                         ax3 = plt.subplot(gs[1, 1])
-                        ax4 = plt.subplot(gs[2, 1])
 
                         ax1.imshow(bmode[::-1, ...], vmin=bmode_limits[0], vmax=bmode_limits[1], extent=extent, aspect=aspect**-1, cmap='gray')
                         ax1.set_facecolor('#000000')
@@ -499,7 +498,7 @@ for dat_num in range(1, cfg.dat_num):
 
                         # when is index k for left channel and when for right? answer: pts_idcs
                         pts_idx = int(pts_idcs[k])
-                        for j, (ax, cen, val, vec, color) in enumerate(zip([ax3]+[[ax2, ax4][pts_idx]], [cen_cens[:, pts_mask_num][:, k], adj_cens[:, pts_mask_num][:, k]], [cen_vals[:, pts_mask_num][:, k], adj_vals[:, pts_mask_num][:, k]], [cen_vecs[:, pts_mask_num][:, k], adj_vecs[:, pts_mask_num][:, k]], ['g']+[['b', 'y'][pts_idx]])):
+                        for j, (ax, cen, val, vec, color) in enumerate(zip([ax2, ax3], [cen_cens[:, pts_mask_num][:, k], adj_cens[:, pts_mask_num][:, k]], [cen_vals[:, pts_mask_num][:, k], adj_vals[:, pts_mask_num][:, k]], [cen_vecs[:, pts_mask_num][:, k], adj_vecs[:, pts_mask_num][:, k]], ['g']+[['b', 'y'][pts_idx]])):
                             
                             el_idx = cch_idcs_flat[k] if j==0 else sch_idcs_flat[k]
                             dmax = max([max(data_arr[:, cch_idcs_flat[k]]), max(data_arr[:, sch_idcs_flat[k]])])
@@ -541,13 +540,12 @@ for dat_num in range(1, cfg.dat_num):
                             ax1.legend()
 
                         # plot components
-                        sax = [ax2, ax4][pts_idx]
-                        sax.plot(np.stack([(sch_comps[k] - sch_phi_shifts[k]/(2*np.pi*param.fs)) * param.fs * cfg.enlarge_factor,]*2), [dmin, dmax], color='red')
                         mu_cch = np.repeat(np.repeat(comps_cch[..., 1], echo_per_sch, axis=1), 2, axis=0).flatten()[pts_mask_num][k]
-                        ax3.plot(np.stack([mu_cch * param.fs * cfg.enlarge_factor,]*2), [dmin, dmax], color='red')
+                        ax2.plot(np.stack([mu_cch * param.fs * cfg.enlarge_factor,]*2), [dmin, dmax], color='red')
+                        ax3.plot(np.stack([(sch_comps[k] - sch_phi_shifts[k]/(2*np.pi*param.fs)) * param.fs * cfg.enlarge_factor,]*2), [dmin, dmax], color='red')
                         
                         #[ax2, ax4][~pt_idx].plot(np.stack([((toa_pars[k]-nonplanar_tdx)/param.c-param.t0) * param.fs * cfg.enlarge_factor,]*2), [min(result[par_ch_idcs[k], :]), max(result[par_ch_idcs[k], :])], color='pink', linestyle='dashdot', linewidth=2)
-                        plt.tight_layout(pad=2)
+                        plt.tight_layout(pad=1.8)
                         plt.show()
 
             all_pts = np.vstack(all_pts_list)
