@@ -389,43 +389,6 @@ for dat_num in range(1, cfg.dat_num):
                 pts_mask_num &= valid_intersects
 
                 pts_idcs = ~np.repeat(np.dstack([np.ones_like(ch_idcs), np.zeros_like(ch_idcs)]).flatten(), echo_per_sch*comp_num).astype(bool)[pts_mask_num]
-                
-                if cfg.parity_opt:
-                    # parity toa distance of neighbor transducer
-                    par_ch_idcs = np.repeat(np.dstack([ch_idcs+tx_gap, ch_idcs-tx_gap]).flatten(), echo_per_sch*comp_num)[pts_mask_num]
-                    
-                    tx_pos = np.vstack([param.xe[par_ch_idcs*cfg.ch_gap], np.zeros(par_ch_idcs.shape[0])]).T
-                    virtual_tdx = np.hypot(pts[:, 0]-vsource[0], pts[:, 1]-vsource[1])
-                    dtx = virtual_tdx - nonplanar_tdx
-                    mu_pars = (np.linalg.norm(pts-tx_pos, axis=-1)+dtx) / param.c - param.t0
-
-                    idx_pars = np.argmin(abs(mu_pars[:, None] - memgo_feats[par_ch_idcs, :, 1]), axis=-1)
-                    comp_pars = memgo_feats[par_ch_idcs, idx_pars, :]
-
-                    echo_pars = t[echo_list[par_ch_idcs, idx_pars, 1].astype(int)]
-                    par_difs = echo_pars - comp_pars[:, 1]
-                    toa_pars = (comp_pars[:, 1]+par_difs+param.t0) * param.c + nonplanar_tdx
-                    
-                    # comp_cch indices to which each comp_par belongs to
-                    cch_idx_pars = np.concatenate([np.repeat(np.arange(echo_cch_num), echo_per_sch), np.repeat(np.arange(echo_cch_num), echo_per_sch)])
-                    cch_idx_pars = np.repeat(cch_idx_pars[None, :], len(ch_idcs), axis=0)
-                    s = np.array([comp_cch[cch_idx_par] for (comp_cch, cch_idx_par) in zip(comps_cch, cch_idx_pars)]).reshape(-1, 6)
-
-                    phi_shift_pars = comp_pars[:, 5] - s[pts_mask_num, 5]
-                    cch_sample_par = np.repeat(np.concatenate([cch_sample, cch_sample], axis=-1).flatten(), echo_per_sch)[pts_mask_num]
-                    cch_grad_par = np.repeat(np.concatenate([cch_grad, cch_grad], axis=-1).flatten(), echo_per_sch)[pts_mask_num]
-                    phi_shift_pars = get_overall_phase_shift(data_arr, toa_pars, phi_shift_pars, par_ch_idcs, cfg.ch_gap, cch_sample_par, cch_grad_par)
-
-                    toa_pars -= phi_shift_pars/(2*np.pi*param.fs) * param.c
-                    dist_pars = abs((toa_pars-nonplanar_tdx)/param.c-param.t0 - mu_pars) * param.fs
-
-                    valid = dist_pars < cfg.dist_par_threshold  # .5
-                else:
-                    dist_pars = np.ones(pts.shape[0])*float('NaN')
-                    valid = np.ones(pts.shape[0], dtype=bool)
-
-                if pts.size > 0: all_pts_list.append(np.array([pts[valid, 0], pts[valid, 1]]).T)
-                if pts.size > 0: rej_pts_list.append(np.array([pts[~valid, 0], pts[~valid, 1]]).T)
 
                 if cfg.parity_opt:
                     # parity toa distance of neighbor transducer
