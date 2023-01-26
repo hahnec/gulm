@@ -444,7 +444,7 @@ for dat_num in range(1, cfg.dat_num):
                         if k == 351:
                             print('hold')
 
-                        fig = plt.figure(figsize=(30/2, 15/2))
+                        fig = plt.figure(figsize=(30/3, 15/3))
                         gs = gridspec.GridSpec(2, 2)
                         ax1 = plt.subplot(gs[:, 0])
                         ax2 = plt.subplot(gs[0, 1])
@@ -452,8 +452,8 @@ for dat_num in range(1, cfg.dat_num):
 
                         ax1.imshow(bmode[::-1, ...], vmin=bmode_limits[0], vmax=bmode_limits[1], extent=extent, aspect=aspect**-1, cmap='gray')
                         ax1.set_facecolor('#000000')
-                        ax1.plot((ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength, 'bx', label=ulm_method)
-                        ax1.plot(xpos[~np.isnan(xpos)], zpos[~np.isnan(zpos)], 'rx', label='ground-truth')
+                        ax1.plot((ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength, 'bx', label='Radial symmetry')#ulm_method)
+                        ax1.plot(xpos[~np.isnan(xpos)], zpos[~np.isnan(zpos)], 'rx', label='Ground truth')
                         ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=5, label='Transducer plane')
                         xzc = np.array([cen_cens[:, pts_mask_num][:, k][0], cen_cens[:, pts_mask_num][:, k][1]]) / cfg.num_scale
                         ax1.set_ylim([0, max(param.z)])#ax1.set_ylim([min(xzc), max(abs(xzc))])#
