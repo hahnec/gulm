@@ -20,4 +20,4 @@ cd ~/21_rethink_ulm/scripts
 
 python -c "import torch; print(torch.cuda.is_available())"
 
-python ./scripts/pala_memgo+ellipse_gte+localize-2ch_script_dev_frame_batch.py
+python ./pala_memgo+ellipse_gte+localize-2ch_script_dev_frame_batch.py
