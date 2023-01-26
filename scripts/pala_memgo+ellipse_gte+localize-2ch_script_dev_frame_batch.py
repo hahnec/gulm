@@ -295,6 +295,7 @@ for dat_num in range(1, cfg.dat_num):
                 idcs_valid = np.argsort(conf[ch_idcs, :], axis=-1)[:, -comp_num:]
 
                 comps_cch = memgo_feats[ch_idcs[:, None], idcs_valid]
+                confs_cch = np.repeat(conf[ch_idcs[:, None], idcs_valid], 3, axis=-1)
 
                 # get central transducers ToA
                 cch_dif = t[echo_list[ch_idcs[:, None], idcs_valid, 1].astype(int)] - comps_cch[..., 1]
@@ -311,11 +312,11 @@ for dat_num in range(1, cfg.dat_num):
                 lch_cidx = np.argmin(abs(np.repeat(comps_cch[..., 1][..., None], memgo_feats.shape[1], axis=-1) - memgo_feats[ch_idcs-tx_gap, :, 1][:, None]), axis=-1)
                 rch_cidx = np.argmin(abs(np.repeat(comps_cch[..., 1][..., None], memgo_feats.shape[1], axis=-1) - memgo_feats[ch_idcs+tx_gap, :, 1][:, None]), axis=-1)
 
-                lch_idcs = (np.repeat(lch_cidx[..., None], 3, axis=-1) + np.linspace(-1, 1, 3).astype('int')).reshape(lch_cidx.shape[0], -1)
-                rch_idcs = (np.repeat(rch_cidx[..., None], 3, axis=-1) + np.linspace(-1, 1, 3).astype('int')).reshape(rch_cidx.shape[0], -1)
                 echo_per_sch = 3
+                lch_idcs = (np.repeat(lch_cidx[..., None], echo_per_sch, axis=-1) + np.linspace(-1, 1, echo_per_sch).astype('int')).reshape(lch_cidx.shape[0], -1)
+                rch_idcs = (np.repeat(rch_cidx[..., None], echo_per_sch, axis=-1) + np.linspace(-1, 1, echo_per_sch).astype('int')).reshape(rch_cidx.shape[0], -1)
                 
-                # find comp index outliers (<0 or >num)
+                # find component index outliers (<0 or >num)
                 # tbd = -1
                 lch_idcs[(0>lch_idcs) | (lch_idcs>memgo_feats.shape[1]-1)] = 0
                 rch_idcs[(0>rch_idcs) | (rch_idcs>memgo_feats.shape[1]-1)] = 0
@@ -324,6 +325,11 @@ for dat_num in range(1, cfg.dat_num):
                 comps_lch = memgo_feats[(ch_idcs-tx_gap)[:, None], lch_idcs]
                 comps_rch = memgo_feats[(ch_idcs+tx_gap)[:, None], rch_idcs]
 
+                # confidences
+                confs_lch = conf[(ch_idcs-tx_gap)[:, None], lch_idcs]
+                confs_rch = conf[(ch_idcs+tx_gap)[:, None], rch_idcs]
+
+                # displacements wrt. originally detected echoes
                 lch_difs = t[echo_list[(ch_idcs-tx_gap)[:, None], lch_idcs, 1].astype(int)] - comps_lch[..., 1]
                 rch_difs = t[echo_list[(ch_idcs+tx_gap)[:, None], rch_idcs, 1].astype(int)] - comps_rch[..., 1]
 
@@ -333,8 +339,8 @@ for dat_num in range(1, cfg.dat_num):
 
                 # relative phase displacement
                 phi_shift_cch = 0
-                phi_shifts_lch = (comps_lch[..., 5] - np.repeat(comps_cch[..., 5], 3, axis=1))
-                phi_shifts_rch = (comps_rch[..., 5] - np.repeat(comps_cch[..., 5], 3, axis=1))
+                phi_shifts_lch = (comps_lch[..., 5] - np.repeat(comps_cch[..., 5], echo_per_sch, axis=1))
+                phi_shifts_rch = (comps_rch[..., 5] - np.repeat(comps_cch[..., 5], echo_per_sch, axis=1))
                 phi_shifts_lch = get_overall_phase_shift(data_arr, toas_lch, phi_shifts_lch, (ch_idcs-tx_gap)[:, None], cfg.ch_gap, np.repeat(cch_sample, 3, axis=1), np.repeat(cch_grad, 3, axis=1))
                 phi_shifts_rch = get_overall_phase_shift(data_arr, toas_rch, phi_shifts_rch, (ch_idcs+tx_gap)[:, None], cfg.ch_gap, np.repeat(cch_sample, 3, axis=1), np.repeat(cch_grad, 3, axis=1))
                 toas_lch -= phi_shifts_lch/(2*np.pi*param.fs) * param.c
