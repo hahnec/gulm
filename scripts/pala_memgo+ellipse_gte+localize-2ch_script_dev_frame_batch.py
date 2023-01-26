@@ -220,7 +220,7 @@ for dat_num in range(1, cfg.dat_num):
         # MEMGO optimization
         start = time.time()
         try:
-            memgo_batch, result, conf_batch, echo_batch = batch_staged_memgo(data_batch, x=t, cfg=cfg, max_iter_per_stage=cfg.max_iter, print_opt=True)
+            memgo_batch, result, conf_batch, echo_batch = batch_staged_memgo(data_batch, x=t, cfg=cfg, max_iter_per_stage=cfg.max_iter, echo_threshold=cfg.echo_threshold, print_opt=True)
             #memgo_batch, result, conf_batch, echo_batch = batched_memgo(data_batch, x=t, cfg=cfg, max_iter_per_stage=cfg.max_iter, print_opt=True)
         except torch._C._LinAlgError:
             continue
