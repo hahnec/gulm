@@ -215,22 +215,25 @@ for dat_num in range(1, cfg.dat_num):
         rf_iq_frames = np.array([decompose_frame(P, RFdata[..., frame_idx]) for frame_idx in range(frame_batch_ptr, frame_batch_ptr+frame_batch_size)])
         
         # convert IQ to RF data
-        start = time.time()
+        start = time.perf_counter()
         data_batch = iq2rf(np.hstack(rf_iq_frames[:, cfg.wave_idx, :, ::cfg.ch_gap]), mod_freq=param.f0, upsample_factor=cfg.enlarge_factor)
-        print('Interpolation time: %s' % str(time.time()-start))
+        print('Interpolation time: %s' % str(time.perf_counter()-start))
 
         # prepare variables for optimization
         data_batch = torch.tensor(data_batch, dtype=torch.double, device=cfg.device)
         t = torch.arange(0, len(data_batch[:, 0])/param.fs/cfg.enlarge_factor, 1/param.fs/cfg.enlarge_factor, device=data_batch.device, dtype=data_batch.dtype)
 
+        # prepare MEMGO performance measurement
+        torch.cuda.synchronize()
+        start = time.perf_counter()
+
         # MEMGO optimization
-        start = time.time()
         try:
             memgo_batch, result, conf_batch, echo_batch = batch_staged_memgo(data_batch, x=t, cfg=cfg, max_iter_per_stage=cfg.max_iter, echo_threshold=cfg.echo_threshold, print_opt=True)
             #memgo_batch, result, conf_batch, echo_batch = batched_memgo(data_batch, x=t, cfg=cfg, max_iter_per_stage=cfg.max_iter, print_opt=True)
         except torch._C._LinAlgError:
             continue
-        print('MEMGO frame time: %s' % str((time.time()-start)/frame_batch_size))
+        print('MEMGO frame time: %s' % str((time.perf_counter()-start)/frame_batch_size))
         conf_frame = float(torch.nanmean(conf_batch[conf_batch>0]*1e5))
         print('MEMGO confidence: %s' % str(conf_frame))
         
@@ -272,16 +275,16 @@ for dat_num in range(1, cfg.dat_num):
             # beamforming
             if cfg.plt_comp_opt or cfg.plt_frame_opt:
                 iq_frame = iq_mat['IQ'][..., frame_idx]
-                start = time.time()
+                start = time.perf_counter()
                 bmode = pala_beamformer(rf_iq_frames[frame_batch_idx, ...], param, mesh_x, mesh_z)
-                print('Beamforming time: %s' % str(time.time()-start))
+                print('Beamforming time: %s' % str(time.perf_counter()-start))
                 bmode -= bmode.max()
                 bmode_limits = [-60, 0] # [dB] scale
 
             # prevent echoes from being in negative time domain
             memgo_feats[memgo_feats[..., 1]<0, 1] = 0
 
-            start = time.time()
+            start = time.perf_counter()
             # select channel
             all_pts_list = []
             rej_pts_list = []
@@ -547,7 +550,7 @@ for dat_num in range(1, cfg.dat_num):
 
                 if sum(l==labels) > cfg.cluster_number: reduced_pts.append(all_pts[l==labels][idx]) #label_xy_mean)#
 
-            print('Frame time: %s' % str(time.time()-start))
+            print('Frame time: %s' % str(time.perf_counter()-start))
 
             gt_array = np.array([xpos, zpos]).T[(~np.isnan(xpos)) & (~np.isnan(zpos)), :]
             pace_array = np.array(reduced_pts)[:, :2] if np.array(reduced_pts).size > 0 else np.array([])
