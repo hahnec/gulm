@@ -9,7 +9,7 @@ from simple_tracker.tracks2img import tracks2img
 normalize = lambda x: (x-x.min())/(x.max()-x.min()) if x.max()-x.min() > 0 else x-x.min()
 
 
-def render_ulm(data_path=None, method='default', expr='', plot_opt=False):
+def render_ulm(data_path=None, method='default', expr='', plot_opt=False, cmap_opt=False, uint8_opt=False):
 
     # path management
     script_path = Path(__file__).parent.resolve() / 'output_frames'
@@ -45,25 +45,24 @@ def render_ulm(data_path=None, method='default', expr='', plot_opt=False):
         shifted_coords = [np.hstack([p[:, :2] - origin[:2], p[:, 2:]]) for p in tracks_out]
         ulm_img, vel_map = tracks2img(shifted_coords, img_size=np.array([84, 134]), scale=10, mode='tracks')#velnorm')
 
-    # normalize images
-    ulm_img = normalize(ulm_img)
-    vel_map = normalize(vel_map)
-
-    ulm_img = img_color_map(img=ulm_img, cmap='gnuplot')
-    vel_map = img_color_map(img=vel_map, cmap='plasma')
+    # color mapping
+    umax = ulm_img.max()
+    vmax = vel_map.max()
+    ulm_img = img_color_map(img=ulm_img, cmap='gnuplot') * umax
+    vel_map = img_color_map(img=vel_map, cmap='plasma') * vmax
 
     if plot_opt:
         plt.figure()
-        plt.imshow(ulm_img, cmap='gnuplot')#'inferno'
+        plt.imshow(ulm_img)
         plt.show()
 
         plt.figure()
-        plt.imshow(vel_map, cmap='plasma')#'inferno'
+        plt.imshow(vel_map)
         plt.show()
 
-    # convert to uint8
-    ulm_img = np.array(normalize(ulm_img) * (2**8-1), dtype='uint8')
-    vel_map = np.array(normalize(vel_map) * (2**8-1), dtype='uint8')
+    if uint8_opt:
+        ulm_img = np.array(normalize(ulm_img) * (2**8-1), dtype='uint8')
+        vel_map = np.array(normalize(vel_map) * (2**8-1), dtype='uint8')
 
     return ulm_img, vel_map
 
