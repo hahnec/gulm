@@ -46,10 +46,8 @@ def render_ulm(data_path=None, method='default', expr='', plot_opt=False, cmap_o
         ulm_img, vel_map = tracks2img(shifted_coords, img_size=np.array([84, 134]), scale=10, mode='tracks')#velnorm')
 
     # color mapping
-    umax = ulm_img.max()
-    vmax = vel_map.max()
-    ulm_img = img_color_map(img=ulm_img, cmap='gnuplot') * umax
-    vel_map = img_color_map(img=vel_map, cmap='plasma') * vmax
+    ulm_img = img_color_map(img=normalize(ulm_img), cmap='inferno')
+    vel_map = img_color_map(img=normalize(vel_map), cmap='plasma')
 
     if plot_opt:
         plt.figure()

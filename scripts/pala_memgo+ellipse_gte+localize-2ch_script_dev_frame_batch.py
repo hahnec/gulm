@@ -589,7 +589,7 @@ for dat_num in range(1, cfg.dat_num):
             if cfg.save_opt: np.savetxt((output_path / ('pace_frame_%s_%s.csv' % (str(dat_num).zfill(3), str(frame_idx).zfill(4)))), pace_array, delimiter=',')
             if cfg.save_opt: np.savetxt((output_path / ('pala_frame_%s_%s.csv' % (str(dat_num).zfill(3), str(frame_idx).zfill(4)))), pala_array, delimiter=',')
 
-            if cfg.plt_frame_opt:
+            if cfg.plt_cluster_opt:
                 fig = plt.figure(figsize=(30, 15))
                 gs = gridspec.GridSpec(1, 2)
                 ax1 = plt.subplot(gs[0, 0])
@@ -647,8 +647,8 @@ if cfg.logging:
 if cfg.save_opt: 
     np.savetxt(str(output_path / 'logged_errors.csv'), np.array(acc_pace_errs), delimiter=',')
 
-    pace_ulm_img, pace_vel_map = render_ulm(data_path=str(output_path), expr='pace', method='default', plot_opt=False, cmap_opt=True, uint8_opt=False)
-    pala_ulm_img, pala_vel_map = render_ulm(data_path=str(output_path), expr='pala', method='default', plot_opt=False, cmap_opt=True, uint8_opt=False)
+    pace_ulm_img, pace_vel_map = render_ulm(data_path=str(output_path), expr='pace', method='default', plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False)
+    pala_ulm_img, pala_vel_map = render_ulm(data_path=str(output_path), expr='pala', method='default', plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False)
     if cfg.logging:
         wandb.log({"pace_ulm_img": wandb.Image(pace_ulm_img)})
         wandb.log({"pace_vel_map": wandb.Image(pace_vel_map)})
