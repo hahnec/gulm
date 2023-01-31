@@ -545,7 +545,7 @@ for dat_num in range(1, cfg.dat_num):
                 label_xy_mean = np.mean(all_pts[l==labels], axis=0)[:2]
                 idx = np.argmin(np.sum((all_pts[l==labels][:, :2] - label_xy_mean)**2, axis=-1))
 
-                if sum(l==labels) > cfg.cluster_number: reduced_pts.append(all_pts[l==labels][idx]) #label_xy_mean)#
+                if sum(l==labels) > cfg.cluster_number: reduced_pts.append(label_xy_mean)#all_pts[l==labels][idx]) #
 
             print('Frame time: %s' % str(time.time()-start))
 
@@ -644,9 +644,9 @@ if cfg.logging:
 if cfg.save_opt: 
     np.savetxt(str(output_path / 'logged_errors.csv'), np.array(acc_pace_errs), delimiter=',')
 
-    pace_ulm_img, pace_vel_map = render_ulm(data_path=str(output_path), expr='pace', plot_opt=False, cmap_opt=True, uint8_opt=True)
-    pala_ulm_img, pala_vel_map = render_ulm(data_path=str(output_path), expr='pala', plot_opt=False, cmap_opt=True, uint8_opt=True)
-    if cfg.logging: 
+    pace_ulm_img, pace_vel_map = render_ulm(data_path=str(output_path), expr='pace', method='default' ,plot_opt=False, cmap_opt=True, uint8_opt=False)
+    pala_ulm_img, pala_vel_map = render_ulm(data_path=str(output_path), expr='pala', method='default' ,plot_opt=False, cmap_opt=True, uint8_opt=False)
+    if cfg.logging:
         wandb.log({"pace_ulm_img": wandb.Image(pace_ulm_img)})
         wandb.log({"pace_vel_map": wandb.Image(pace_vel_map)})
         wandb.log({"pala_ulm_img": wandb.Image(pala_ulm_img)})
