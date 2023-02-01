@@ -274,7 +274,7 @@ for dat_num in range(1, cfg.dat_num):
             ref_xpos = ref_pts[pts_frame_idcs][:, 2]
 
             # beamforming
-            if cfg.plt_comp_opt or cfg.plt_frame_opt:
+            if cfg.plt_comp_opt or cfg.plt_cluster_opt:
                 iq_frame = iq_mat['IQ'][..., frame_idx]
                 start = time.perf_counter()
                 bmode = pala_beamformer(rf_iq_frames[frame_batch_idx, ...], param, mesh_x, mesh_z)
