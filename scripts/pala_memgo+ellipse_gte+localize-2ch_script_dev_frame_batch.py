@@ -13,6 +13,7 @@ from sklearn.cluster import MeanShift, estimate_bandwidth
 from pathlib import Path
 from omegaconf import OmegaConf
 import wandb
+from skimage.metrics import structural_similarity
 
 from multimodal_emg.batch_staged_memgo import batch_staged_memgo
 from gte_intersect.ellipse import EllipseIntersection
@@ -658,6 +659,6 @@ if cfg.logging:
     wandb.summary['PALA/TotalJaccard'] = pala_jaccard_total
     wandb.summary['PULM/TotalConfidence'] = np.nanmean(np.array(acc_pace_errs)[:, -1])
     wandb.save(str(output_path / 'logged_errors.csv'))
-    if cfg.save_opt: 
-        wandb.summary['PALA/SSIM'] = structural_similarity(gtru_ulm_img, pace_ulm_img, multichannel=True)
-        wandb.summary['PULM/SSIM'] = structural_similarity(gtru_ulm_img, pala_ulm_img, multichannel=True)
+    if cfg.save_opt:
+        wandb.summary['PALA/SSIM'] = structural_similarity(gtru_ulm_img, pala_ulm_img, channel_axis=2)
+        wandb.summary['PULM/SSIM'] = structural_similarity(gtru_ulm_img, pace_ulm_img, channel_axis=2)
