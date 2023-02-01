@@ -144,10 +144,10 @@ for dat_num in range(1, cfg.dat_num):
         iq_fname = rel_path / 'IQ' / ('PALA_InSilicoFlow_IQ'+str(dat_num).zfill(3)+'.mat')
         iq_mat = scipy.io.loadmat(iq_fname)
 
-    ulm_local_methods = [el[0] for el in res_mat['listAlgo'][0]]
-    ulm_local_results = {m: arr for arr, m in zip(res_mat['Track_raw'][0], ulm_local_methods)}
-    ulm_method = ulm_local_methods[-1]
-    ref_pts = ulm_local_results[ulm_method]
+    pala_local_methods = [el[0] for el in res_mat['listAlgo'][0]]
+    pala_local_results = {m: arr for arr, m in zip(res_mat['Track_raw'][0], pala_local_methods)}
+    pala_method = pala_local_methods[-1]
+    ref_pts = pala_local_results[pala_method]
 
     mat2dict = lambda mat: dict([(k[0], v.squeeze()) for v, k in zip(mat[0][0], list(mat.dtype.descr))])
 
@@ -462,7 +462,7 @@ for dat_num in range(1, cfg.dat_num):
 
                         ax1.imshow(bmode[::-1, ...], vmin=bmode_limits[0], vmax=bmode_limits[1], extent=extent, aspect=aspect**-1, cmap='gray')
                         ax1.set_facecolor('#000000')
-                        ax1.plot((ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength, 'b+', label='Radial symmetry')#ulm_method)
+                        ax1.plot((ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength, 'b+', label=str(pala_method))
                         ax1.plot(xpos[~np.isnan(xpos)], zpos[~np.isnan(zpos)], 'rx', label='Ground truth')
                         ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=5, label='Transducer plane')
                         xzc = np.array([cen_cens[:, pts_mask_num][:, k][0], cen_cens[:, pts_mask_num][:, k][1]]) / cfg.num_scale
@@ -603,7 +603,7 @@ for dat_num in range(1, cfg.dat_num):
                 ax1.plot(all_pts[:, 0], all_pts[:, 1], 'gx', label='all points', alpha=.2)
                 ax1.plot(rej_pts[:, 0], rej_pts[:, 1], '.', color='gray', label='rejected points', alpha=.2)
                 #[ax1.text(rej_pts[i, 0], rej_pts[i, 1]+np.random.rand(1)*param.wavelength, s=str(rej_pts[i, 2]), color='orange') for i in range(len(rej_pts))]
-                ax1.plot((ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength, 'bx', label=ulm_method)
+                ax1.plot((ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength, 'bx', label=pala_method)
                 ax1.plot(xpos[~np.isnan(xpos)], zpos[~np.isnan(zpos)], 'rx', label='ground-truth')
                 ax1.plot(np.array(reduced_pts)[:, 0], np.array(reduced_pts)[:, 1], 'c+', label='selected')
                 ax1.set_ylim([0, max(param.z)])
@@ -615,7 +615,7 @@ for dat_num in range(1, cfg.dat_num):
                 ax2.imshow(np.abs(iq_mat['IQ'][..., frame_idx]), cmap='gray')
                 ax2.plot(xpos[~np.isnan(xpos)]/param.wavelength-PData['Origin'][0], zpos[~np.isnan(zpos)]/param.wavelength-PData['Origin'][2], 'rx', label='ground-truth')
                 ax2.plot(np.array(reduced_pts)[:, 0]/param.wavelength-PData['Origin'][0], np.array(reduced_pts)[:, 1]/param.wavelength-PData['Origin'][2], 'c+', label='selected')
-                ax2.plot(ref_xpos-PData['Origin'][0], ref_zpos-PData['Origin'][2], 'bx', label=ulm_method)
+                ax2.plot(ref_xpos-PData['Origin'][0], ref_zpos-PData['Origin'][2], 'bx', label=pala_method)
                 ax2.legend()
                 #for i, l in enumerate(labels_unique):
                 #    if sum(l==labels) > cfg.cluster_number: 
