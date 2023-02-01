@@ -18,6 +18,7 @@ parity_opt: True
 echo_threshold: 0.0825
 dist_par_threshold: 0.5
 shift_factor: 3.4 #4.0
+tracking: Null
 
 logging: False
 plt_comp_opt: False

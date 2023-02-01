@@ -639,9 +639,9 @@ print('Accumulated PALA RMSE: %s, Jacc.: %s' % (pala_rmse_mean, pala_jaccard_tot
 if cfg.save_opt:
     np.savetxt(str(output_path / 'logged_errors.csv'), np.array(acc_pace_errs), delimiter=',')
 
-    gtru_ulm_img, gtru_vel_map = render_ulm(data_path=str(output_path), expr='gtru', method='default', plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False)
-    pala_ulm_img, pala_vel_map = render_ulm(data_path=str(output_path), expr='pala', method='default', plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False)
-    pace_ulm_img, pace_vel_map = render_ulm(data_path=str(output_path), expr='pace', method='default', plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False)
+    gtru_ulm_img, gtru_vel_map = render_ulm(data_path=str(output_path), expr='gtru', tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False)
+    pala_ulm_img, pala_vel_map = render_ulm(data_path=str(output_path), expr='pala', tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False)
+    pace_ulm_img, pace_vel_map = render_ulm(data_path=str(output_path), expr='pace', tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False)
     if cfg.logging:
         wandb.log({"gtru_ulm_img": wandb.Image(gtru_ulm_img)})
         wandb.log({"gtru_vel_img": wandb.Image(gtru_vel_map)})

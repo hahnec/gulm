@@ -9,7 +9,7 @@ from simple_tracker.tracks2img import tracks2img
 normalize = lambda x: (x-x.min())/(x.max()-x.min()) if x.max()-x.min() > 0 else x-x.min()
 
 
-def render_ulm(data_path=None, method='default', expr='', plot_opt=False, cmap_opt=False, uint8_opt=False):
+def render_ulm(data_path=None, tracking=None, expr='', plot_opt=False, cmap_opt=False, uint8_opt=False):
 
     # path management
     script_path = Path(__file__).parent.resolve() / 'output_frames'
@@ -28,11 +28,7 @@ def render_ulm(data_path=None, method='default', expr='', plot_opt=False, cmap_o
     wavelength = 9.856e-05
     origin = np.array([-72,  16, 0], dtype=int)
 
-    if method == 'default':
-        # render based on localizations
-        all_pts = np.vstack(frames) / wavelength - origin[:2]
-        ulm_img, vel_map = tracks2img(all_pts, img_size=np.array([84, 134]), scale=10, mode='all_in')
-    elif method == 'hungarian':
+    if tracking == 'hungarian':
         # init variables
         min_len = 15#
         max_linking_distance = 2
@@ -44,6 +40,10 @@ def render_ulm(data_path=None, method='default', expr='', plot_opt=False, cmap_o
         tracks_out, tracks_interp = tracking2d(frames, max_linking_distance=max_linking_distance, max_gap_closing=max_gap_closing, min_len=min_len, scale=1/framerate, mode='interp')
         shifted_coords = [np.hstack([p[:, :2] - origin[:2], p[:, 2:]]) for p in tracks_out]
         ulm_img, vel_map = tracks2img(shifted_coords, img_size=np.array([84, 134]), scale=10, mode='tracks')#velnorm')
+    else:
+        # render based on localizations
+        all_pts = np.vstack(frames) / wavelength - origin[:2]
+        ulm_img, vel_map = tracks2img(all_pts, img_size=np.array([84, 134]), scale=10, mode='all_in')
 
     # color mapping
     ulm_img = img_color_map(img=normalize(ulm_img), cmap='inferno')
