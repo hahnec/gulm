@@ -636,16 +636,7 @@ pala_jaccard_total = np.array(acc_pala_errs)[:, 2].sum()/(np.array(acc_pala_errs
 print('Total mean confidence: %s' % round(np.nanmean(np.array(acc_pace_errs)[:, -1]), 4))
 print('Accumulated PULM RMSE: %s, Jacc.: %s' % (pulm_rmse_mean, pulm_jaccard_total))
 print('Accumulated PALA RMSE: %s, Jacc.: %s' % (pala_rmse_mean, pala_jaccard_total))
-if cfg.logging:
-    wandb.summary['PULM/TotalRMSE'] = pulm_rmse_mean
-    wandb.summary['PALA/TotalRMSE'] = pala_rmse_mean
-    wandb.summary['PULM/TotalRMSEstd'] = pulm_rmse_std
-    wandb.summary['PALA/TotalRMSEstd'] = pala_rmse_std
-    wandb.summary['PULM/TotalJaccard'] = pulm_jaccard_total
-    wandb.summary['PALA/TotalJaccard'] = pala_jaccard_total
-    wandb.summary['PULM/TotalConfidence'] = np.nanmean(np.array(acc_pace_errs)[:, -1])
-    wandb.save(str(output_path / 'logged_errors.csv'))
-if cfg.save_opt: 
+if cfg.save_opt:
     np.savetxt(str(output_path / 'logged_errors.csv'), np.array(acc_pace_errs), delimiter=',')
 
     gtru_ulm_img, gtru_vel_map = render_ulm(data_path=str(output_path), expr='gtru', method='default', plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False)
@@ -658,3 +649,15 @@ if cfg.save_opt:
         wandb.log({"pala_vel_map": wandb.Image(pala_vel_map)})
         wandb.log({"pace_ulm_img": wandb.Image(pace_ulm_img)})
         wandb.log({"pace_vel_map": wandb.Image(pace_vel_map)})
+if cfg.logging:
+    wandb.summary['PULM/TotalRMSE'] = pulm_rmse_mean
+    wandb.summary['PALA/TotalRMSE'] = pala_rmse_mean
+    wandb.summary['PULM/TotalRMSEstd'] = pulm_rmse_std
+    wandb.summary['PALA/TotalRMSEstd'] = pala_rmse_std
+    wandb.summary['PULM/TotalJaccard'] = pulm_jaccard_total
+    wandb.summary['PALA/TotalJaccard'] = pala_jaccard_total
+    wandb.summary['PULM/TotalConfidence'] = np.nanmean(np.array(acc_pace_errs)[:, -1])
+    wandb.save(str(output_path / 'logged_errors.csv'))
+    if cfg.save_opt: 
+        wandb.summary['PALA/SSIM'] = structural_similarity(gtru_ulm_img, pace_ulm_img, multichannel=True)
+        wandb.summary['PULM/SSIM'] = structural_similarity(gtru_ulm_img, pala_ulm_img, multichannel=True)
