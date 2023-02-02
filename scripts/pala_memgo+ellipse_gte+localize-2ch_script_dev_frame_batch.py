@@ -274,7 +274,7 @@ for dat_num in range(1, cfg.dat_num):
             ref_xpos = ref_pts[pts_frame_idcs][:, 2]
 
             # beamforming
-            if cfg.plt_comp_opt or cfg.plt_frame_opt:
+            if cfg.plt_comp_opt or cfg.plt_cluster_opt:
                 iq_frame = iq_mat['IQ'][..., frame_idx]
                 start = time.perf_counter()
                 bmode = pala_beamformer(rf_iq_frames[frame_batch_idx, ...], param, mesh_x, mesh_z)
@@ -640,9 +640,9 @@ print('Accumulated PALA RMSE: %s, Jacc.: %s' % (pala_rmse_mean, pala_jaccard_tot
 if cfg.save_opt:
     np.savetxt(str(output_path / 'logged_errors.csv'), np.array(acc_pace_errs), delimiter=',')
 
-    gtru_ulm_img, gtru_vel_map = render_ulm(data_path=str(output_path), expr='gtru', tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False)
-    pala_ulm_img, pala_vel_map = render_ulm(data_path=str(output_path), expr='pala', tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False)
-    pace_ulm_img, pace_vel_map = render_ulm(data_path=str(output_path), expr='pace', tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False)
+    gtru_ulm_img, gtru_vel_map = render_ulm(data_path=str(output_path), expr='gtru', tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False, srgb_opt=True)
+    pala_ulm_img, pala_vel_map = render_ulm(data_path=str(output_path), expr='pala', tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False, srgb_opt=True)
+    pace_ulm_img, pace_vel_map = render_ulm(data_path=str(output_path), expr='pace', tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False, srgb_opt=True)
     if cfg.logging:
         wandb.log({"gtru_ulm_img": wandb.Image(gtru_ulm_img)})
         wandb.log({"gtru_vel_img": wandb.Image(gtru_vel_map)})
