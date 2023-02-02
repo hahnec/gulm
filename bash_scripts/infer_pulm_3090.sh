@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --job-name="pulm"
-#SBATCH --time=12:00:00
+#SBATCH --time=09:00:00
 
 #SBATCH --mail-user=christopher.hahne@unibe.ch
 #SBATCH --mail-type=none
@@ -9,8 +9,8 @@
 #SBATCH --mem-per-cpu=8G
 #SBATCH --qos=job_gpu_sznitman
 #SBATCH --account=ws_00000
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:gtx1080ti:1
+#SBATCH --partition=gpu-invest
+#SBATCH --gres=gpu:rtx3090:1
 
 module load Python/3.8.6-GCCcore-10.2.0
 

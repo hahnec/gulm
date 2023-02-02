@@ -7,10 +7,10 @@
 #SBATCH --mail-type=none
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=8G
-#SBATCH --qos=job_gpu_sznitman
+#SBATCH --qos=job_gpu
 #SBATCH --account=ws_00000
-#SBATCH --partition=gpu-invest
-#SBATCH --gres=gpu:rtx3090:1
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:1
 
 module load Python/3.8.6-GCCcore-10.2.0
 
