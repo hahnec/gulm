@@ -632,8 +632,8 @@ pulm_rmse_mean = np.nanmean(pace_rmses)
 pala_rmse_mean = np.nanmean(pala_rmses)
 pulm_rmse_std = np.std(pace_rmses[~np.isnan(pace_rmses)])
 pala_rmse_std = np.std(pala_rmses[~np.isnan(pala_rmses)])
-pulm_jaccard_total = np.array(acc_pace_errs)[:, 2].sum()/(np.array(acc_pace_errs)[:, 2]+np.array(acc_pace_errs)[:, 3]+np.array(acc_pace_errs)[:, 4]).sum() * 100
-pala_jaccard_total = np.array(acc_pala_errs)[:, 2].sum()/(np.array(acc_pala_errs)[:, 2]+np.array(acc_pala_errs)[:, 3]+np.array(acc_pala_errs)[:, 4]).sum() * 100
+pulm_jaccard_total = np.nansum(np.array(acc_pace_errs)[:, 2])/np.nansum(np.array(acc_pace_errs)[:, 2]+np.array(acc_pace_errs)[:, 3]+np.array(acc_pace_errs)[:, 4]) * 100
+pala_jaccard_total = np.nansum(np.array(acc_pala_errs)[:, 2])/np.nansum(np.array(acc_pala_errs)[:, 2]+np.array(acc_pala_errs)[:, 3]+np.array(acc_pala_errs)[:, 4]) * 100
 print('Total mean confidence: %s' % round(np.nanmean(np.array(acc_pace_errs)[:, -1]), 4))
 print('Accumulated PULM RMSE: %s, Jacc.: %s' % (pulm_rmse_mean, pulm_jaccard_total))
 print('Accumulated PALA RMSE: %s, Jacc.: %s' % (pala_rmse_mean, pala_jaccard_total))
