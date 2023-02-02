@@ -295,7 +295,7 @@ for dat_num in range(1, cfg.dat_num):
             for tx_gap in cfg.tx_gaps:
 
                 # iterate over channels
-                ch_idcs = np.hstack([np.arange(tx_gap+s, 16-tx_gap, tx_gap) for s in range(tx_gap)])
+                ch_idcs = np.hstack([np.arange(tx_gap+s, len(memgo_feats)-tx_gap, tx_gap) for s in range(tx_gap)])
 
                 # take only non-zero echo locations
                 idcs_cch = (memgo_feats[ch_idcs, ..., 1] > 0)
