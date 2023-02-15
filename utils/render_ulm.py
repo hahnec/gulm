@@ -10,7 +10,7 @@ from utils.srgb_conv import srgb_conv
 normalize = lambda x: (x-x.min())/(x.max()-x.min()) if x.max()-x.min() > 0 else x-x.min()
 
 
-def render_ulm(data_path=None, tracking=None, expr='', plot_opt=False, cmap_opt=False, uint8_opt=False, gamma=1, srgb_opt=False):
+def render_ulm(data_path=None, tracking=None, expr='', plot_opt=False, cmap_opt=False, uint8_opt=False, gamma=None, srgb_opt=False):
 
     # path management
     script_path = Path(__file__).parent.resolve() / 'output_frames'
@@ -47,6 +47,7 @@ def render_ulm(data_path=None, tracking=None, expr='', plot_opt=False, cmap_opt=
         ulm_img, vel_map = tracks2img(all_pts, img_size=np.array([84, 134]), scale=10, mode='all_in')
 
     # gamma correction
+    gamma = gamma if isinstance(gamma, (float, int)) else 1
     ulm_img **= gamma
 
     # sRGB conversion
