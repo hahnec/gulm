@@ -36,34 +36,39 @@ def angle_amplitude_ratio(amplitude, xe_pos, pt):
 
     return fov_ratio, angle
 
-def get_amp_grad(data, toa, phi_shift, ch_idx):
+def get_amp_grad(data, toa, phi_shift, ch_idx, grad_step=1):
 
+    # get sample index
     sample_idx = time2sample(toa, phi_shift)
+    # ensure sample index is within boundaries
     sample_idx[(sample_idx >= len(data)) | (sample_idx < 0)] = 0
+    # get sample amplitude
     sample_amp = data[sample_idx, ch_idx]
-    sample_idx[(sample_idx >= len(data)-1) | (sample_idx+1 < 0)] = 0
-    gradie_amp = data[sample_idx+1, ch_idx] - sample_amp
+    # ensure adjacent sample index within boundaries
+    sample_idx[(sample_idx >= len(data)-grad_step) | (sample_idx+grad_step < 0)] = 0
+    # get sample amplitude
+    gradie_amp = data[sample_idx+grad_step, ch_idx] - sample_amp
 
     return sample_amp, gradie_amp
 
-def get_overall_phase_shift(data_arr, toas, phi_shifts, ch_idx, ch_gap, cch_sample, cch_grad):
+def get_overall_phase_shift(data_arr, toas, phi_shifts, ch_idx, ch_gap, cch_sample, cch_grad, grad_step=1):
     
     phi_shifts[-np.pi > phi_shifts] += +2*np.pi
     phi_shifts[+np.pi < phi_shifts] += -2*np.pi
 
-    sample, grad = get_amp_grad(data_arr, toas, phi_shifts, ch_idx)
+    sample, grad = get_amp_grad(data_arr, toas, phi_shifts, ch_idx, grad_step)
     phi_shifts[(sample < 0) & (cch_sample > 0) & (grad > 0) & (cch_grad < 0)] -= np.pi/2     
     phi_shifts[(sample > 0) & (cch_sample < 0) & (grad < 0) & (cch_grad > 0)] += np.pi/2
 
-    sample, grad = get_amp_grad(data_arr, toas, phi_shifts, ch_idx)
+    sample, grad = get_amp_grad(data_arr, toas, phi_shifts, ch_idx, grad_step)
     phi_shifts[(sample < 0) & (cch_sample > 0) & (((grad > 0) & (cch_grad > 0)) | ((grad < 0) & (cch_grad < 0)))] += np.pi/2
     phi_shifts[(sample > 0) & (cch_sample < 0) & (((grad > 0) & (cch_grad > 0)) | ((grad < 0) & (cch_grad < 0)))] -= np.pi/2
 
-    sample, grad = get_amp_grad(data_arr, toas, phi_shifts, ch_idx)
+    sample, grad = get_amp_grad(data_arr, toas, phi_shifts, ch_idx, grad_step)
     phi_shifts[(sample < 0) & (cch_sample < 0) & (grad > 0) & (cch_grad < 0)] += np.pi/2
     phi_shifts[(sample < 0) & (cch_sample < 0) & (grad < 0) & (cch_grad > 0)] -= np.pi/2
 
-    sample, grad = get_amp_grad(data_arr, toas, phi_shifts, ch_idx)
+    sample, grad = get_amp_grad(data_arr, toas, phi_shifts, ch_idx, grad_step)
     phi_shifts[(sample > 0) & (cch_sample > 0) & (grad > 0) & (cch_grad < 0)] -= np.pi/2
     phi_shifts[(sample > 0) & (cch_sample > 0) & (grad < 0) & (cch_grad > 0)] += np.pi/2
 
@@ -76,7 +81,7 @@ def get_overall_phase_shift(data_arr, toas, phi_shifts, ch_idx, ch_gap, cch_samp
 script_path = Path(__file__).parent.resolve()
 
 # load config
-cfg = OmegaConf.load(str(script_path.parent / 'pulm_config.yaml'))
+cfg = OmegaConf.load(str(script_path.parent / 'config.yaml'))
 
 # override config with CLI
 cfg = OmegaConf.merge(cfg, OmegaConf.from_cli())
@@ -310,7 +315,7 @@ for dat_num in range(1, cfg.dat_num):
                 cch_dif = t[echo_list[ch_idcs[:, None], idcs_valid, 1].astype(int)] - comps_cch[..., 1]
                 toas_cch = (comps_cch[..., 1]+cch_dif+param.t0) * param.c + nonplanar_tdx
                 cch_sample, cch_grad = get_amp_grad(data_arr, toas_cch, np.zeros(toas_cch.shape), ch_idcs[:, None])
-                toas_cch -= 0.00001*cfg.shift_factor
+                toas_cch -= cfg.shift_factor
                 cch_cens = (np.array([param.xe[ch_idcs*cfg.ch_gap]*cfg.num_scale, np.zeros(ch_idcs.shape)]) + src_vec[:, None]*cfg.num_scale)/2
 
                 spacer_vec = src_vec[:, None]*cfg.num_scale - np.array([param.xe[ch_idcs*cfg.ch_gap]*cfg.num_scale, np.zeros(ch_idcs.shape)])
@@ -350,13 +355,14 @@ for dat_num in range(1, cfg.dat_num):
                 phi_shift_cch = 0
                 phi_shifts_lch = (comps_lch[..., 5] - np.repeat(comps_cch[..., 5], echo_per_sch, axis=1))
                 phi_shifts_rch = (comps_rch[..., 5] - np.repeat(comps_cch[..., 5], echo_per_sch, axis=1))
-                phi_shifts_lch = get_overall_phase_shift(data_arr, toas_lch, phi_shifts_lch, (ch_idcs-tx_gap)[:, None], cfg.ch_gap, np.repeat(cch_sample, 3, axis=1), np.repeat(cch_grad, 3, axis=1))
-                phi_shifts_rch = get_overall_phase_shift(data_arr, toas_rch, phi_shifts_rch, (ch_idcs+tx_gap)[:, None], cfg.ch_gap, np.repeat(cch_sample, 3, axis=1), np.repeat(cch_grad, 3, axis=1))
+                phase_grad_step = 1 #int((param.wavelength/8)/param.c*param.fs*cfg.enlarge_factor)
+                phi_shifts_lch = get_overall_phase_shift(data_arr, toas_lch, phi_shifts_lch, (ch_idcs-tx_gap)[:, None], cfg.ch_gap, np.repeat(cch_sample, 3, axis=1), np.repeat(cch_grad, 3, axis=1), grad_step=phase_grad_step)
+                phi_shifts_rch = get_overall_phase_shift(data_arr, toas_rch, phi_shifts_rch, (ch_idcs+tx_gap)[:, None], cfg.ch_gap, np.repeat(cch_sample, 3, axis=1), np.repeat(cch_grad, 3, axis=1), grad_step=phase_grad_step)
                 toas_lch -= phi_shifts_lch/(2*np.pi*param.fs) * param.c
                 toas_rch -= phi_shifts_rch/(2*np.pi*param.fs) * param.c
 
-                toas_lch -= 0.00001*cfg.shift_factor
-                toas_rch -= 0.00001*cfg.shift_factor
+                toas_lch -= cfg.shift_factor
+                toas_rch -= cfg.shift_factor
 
                 # set ellipse parameters
                 xe_positions = np.array([[param.xe[(ch_idcs-tx_gap)*cfg.ch_gap], np.zeros(ch_idcs.shape)], [param.xe[(ch_idcs+tx_gap)*cfg.ch_gap], np.zeros(ch_idcs.shape)]])
@@ -485,7 +491,7 @@ for dat_num in range(1, cfg.dat_num):
                             dmin = min([min(data_arr[:, cch_idcs_flat[k]]), min(data_arr[:, sch_idcs_flat[k]])])
                                 
                             # ellipse plot
-                            #val -= 0.00001*cfg.shift_factor*cfg.num_scale/2
+                            #val -= cfg.shift_factor*cfg.num_scale/2
                             major_axis_radius = np.linalg.norm(vec*val[0] / cfg.num_scale)
                             minor_axis_radius = np.linalg.norm(vec*val[1] / cfg.num_scale)
                             xz = np.array([cen[0], cen[1]]) / cfg.num_scale

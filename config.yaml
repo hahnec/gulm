@@ -1,15 +1,14 @@
-
-device: 'cpu'  #'cuda' #
+device: 'cuda' #'cpu'  #
 ch_gap: 8 #16 #
-frame_batch_size: 1
+frame_batch_size: 2
 enlarge_factor: 60
 cluster_number: 4
 comp_max: 8
 max_iter: 2
 wave_idx: 1 #1 #0
 num_scale: 1e12 #1e6 #
-tx_gaps: [1, 2, 3, 4] #5, 6, 8, 10, 12]
-frame_num: 10
+tx_gaps: [1, 2, 3, 4] #, 5, 6, 8, 10, 12]
+frame_num: 30
 dat_num: 2
 intersect_method: 'gt'
 phase_refinement_opt: True
@@ -17,13 +16,14 @@ radial_offset_method: 'off'
 parity_opt: True
 echo_threshold: 0.0825
 dist_par_threshold: 0.5
-shift_factor: 3.4 #4.0
-tracking: Null
+shift_factor: 3.1e-5
+tracking: Null #'hungarian'
 
 logging: False
 plt_comp_opt: False
-plt_frame_opt: False
-save_opt: False
+plt_cluster_opt: False
+plt_frame_opt: True
+save_opt: True
 
 data_path: PALA_data_InSilicoFlow/  #PALA_data_InVivoRatBrain #
 ubx_dir: /storage/homefs/ch21z139/PALA_dataset/${data_path}
