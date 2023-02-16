@@ -19,7 +19,7 @@ from multimodal_emg.batch_staged_memgo import batch_staged_memgo
 from gte_intersect.ellipse import EllipseIntersection
 from utils.pala_beamformer import pala_beamformer, decompose_frame
 from utils.pala_error import rmse_unique
-from utils.render_ulm import render_ulm
+from utils.render_ulm import render_ulm, load_ulm_data
 from utils.iq2rf import iq2rf
 
 # tbd: replace t[echo_list] with batch_echo_array
@@ -645,9 +645,12 @@ print('Accumulated PALA RMSE: %s, Jacc.: %s' % (pala_rmse_mean, pala_jaccard_tot
 if cfg.save_opt:
     np.savetxt(str(output_path / 'logged_errors.csv'), np.array(acc_pace_errs), delimiter=',')
 
-    gtru_ulm_img, gtru_vel_map = render_ulm(data_path=str(output_path), expr='gtru', tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True)
-    pala_ulm_img, pala_vel_map = render_ulm(data_path=str(output_path), expr='pala', tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True)
-    pace_ulm_img, pace_vel_map = render_ulm(data_path=str(output_path), expr='pace', tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True)
+    frames = load_ulm_data(data_path=str(output_path), expr='gtru')
+    gtru_ulm_img, gtru_vel_map = render_ulm(frames, tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True)
+    frames = load_ulm_data(data_path=str(output_path), expr='pala')
+    pala_ulm_img, pala_vel_map = render_ulm(frames, tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True)
+    frames = load_ulm_data(data_path=str(output_path), expr='pace')
+    pace_ulm_img, pace_vel_map = render_ulm(frames, tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True)
     if cfg.logging:
         wandb.log({"gtru_ulm_img": wandb.Image(gtru_ulm_img)})
         wandb.log({"gtru_vel_img": wandb.Image(gtru_vel_map)})

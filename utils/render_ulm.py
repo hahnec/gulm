@@ -10,20 +10,7 @@ from utils.srgb_conv import srgb_conv
 normalize = lambda x: (x-x.min())/(x.max()-x.min()) if x.max()-x.min() > 0 else x-x.min()
 
 
-def render_ulm(data_path=None, tracking=None, expr='', plot_opt=False, cmap_opt=False, uint8_opt=False, gamma=None, srgb_opt=False):
-
-    # path management
-    script_path = Path(__file__).parent.resolve() / 'output_frames'
-    data_path = data_path if data_path is not None else script_path
-    fnames = sorted(Path(data_path).iterdir())
-    assert len(fnames) > 0, 'No files found'
-
-    # load frame data
-    frames = []
-    for fname in fnames:
-         # skip files which do not contain expression
-        if fname.name.__contains__(expr): frames.append(np.loadtxt(fname, delimiter=',', skiprows=1))
-    assert len(frames) > 0, 'No frames found'
+def render_ulm(frames, tracking=None, expr='', plot_opt=False, cmap_opt=False, uint8_opt=False, gamma=None, srgb_opt=False):
 
     # init variables
     wavelength = 9.856e-05
@@ -31,9 +18,9 @@ def render_ulm(data_path=None, tracking=None, expr='', plot_opt=False, cmap_opt=
 
     if tracking == 'hungarian':
         # init variables
-        min_len = 15#
+        min_len = 15
         max_linking_distance = 2
-        max_gap_closing = 0#
+        max_gap_closing = 0
         framerate = 500
 
         # render based on Hungarian linker
@@ -83,7 +70,26 @@ def img_color_map(img=None, cmap='inferno'):
     return img
 
 
+def load_ulm_data(data_path, expr='pace'):
+
+    # path management
+    script_path = Path(__file__).parent.parent.resolve() / 'scripts' / 'other_frames'
+    data_path = data_path if data_path is not None else script_path
+    fnames = sorted(Path(data_path).iterdir())
+    assert len(fnames) > 0, 'No files found'
+
+    # load frame data
+    frames = []
+    for fname in fnames:
+         # skip files which do not contain expression
+        if fname.name.__contains__(expr): frames.append(np.loadtxt(fname, delimiter=',', skiprows=1))
+    assert len(frames) > 0, 'No frames found'
+
+    return frames
+
+
 if __name__ == '__main__':
 
-    data_path = Path('../../../chris/UbelixUser/02_pace/pulm/scripts/rethink_ulm/output_frames_')
-    render_ulm(data_path=data_path, expr='pace', plot_opt=True)
+    data_path = None
+    frames = load_ulm_data(data_path, expr='pace')
+    render_ulm(frames, plot_opt=True, gamma=.5, srgb_opt=True)
