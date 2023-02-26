@@ -18,7 +18,7 @@ echo_threshold: 0.0825
 dist_par_threshold: 0.5
 shift_factor: 2.5e-5
 tracking: Null #'hungarian'
-gamma: .5
+gamma: .9
 
 logging: False
 plt_comp_opt: True
