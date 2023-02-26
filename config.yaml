@@ -19,6 +19,7 @@ dist_par_threshold: 0.5
 shift_factor: 2.5e-5
 tracking: Null #'hungarian'
 gamma: .9
+noise_db: -40
 
 logging: False
 plt_comp_opt: True

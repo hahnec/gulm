@@ -21,6 +21,8 @@ from utils.pala_beamformer import pala_beamformer, decompose_frame
 from utils.pala_error import rmse_unique
 from utils.render_ulm import render_ulm, load_ulm_data
 from utils.iq2rf import iq2rf
+from utils.speckle_noise import add_pala_noise
+from utils.bandpass import bandpass_filter
 
 # tbd: replace t[echo_list] with batch_echo_array
 
@@ -219,14 +221,20 @@ for dat_num in range(1, cfg.dat_num):
 
         # rf_iq_frame dimensions: frames x angles x samples x channels
         rf_iq_frames = np.array([decompose_frame(P, RFdata[..., frame_idx]) for frame_idx in range(frame_batch_ptr, frame_batch_ptr+frame_batch_size)])
-        
+
         # convert IQ to RF data
         start = time.perf_counter()
         data_batch = iq2rf(np.hstack(rf_iq_frames[:, cfg.wave_idx, :, ::cfg.ch_gap]), mod_freq=param.f0, upsample_factor=cfg.enlarge_factor)
         print('Interpolation time: %s' % str(time.perf_counter()-start))
+        
+        if np.isreal(cfg.noise_db) and cfg.noise_db < 0:
+            # add noise according to PALA study
+            data_batch = add_pala_noise(data_batch, clutter_db=cfg.noise_db)
+            # bandpass filter to counteract impact of noise
+            data_batch = bandpass_filter(data_batch.T, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor).T
 
         # prepare variables for optimization
-        data_batch = torch.tensor(data_batch, dtype=torch.double, device=cfg.device)
+        data_batch = torch.tensor(data_batch.copy(), dtype=torch.double, device=cfg.device)
         t = torch.arange(0, len(data_batch[:, 0])/param.fs/cfg.enlarge_factor, 1/param.fs/cfg.enlarge_factor, device=data_batch.device, dtype=data_batch.dtype)
 
         # prepare MEMGO performance measurement
