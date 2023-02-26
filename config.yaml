@@ -1,6 +1,6 @@
 device: 'cuda' #'cpu'  #
 ch_gap: 8 #16 #
-frame_batch_size: 2
+frame_batch_size: 1
 enlarge_factor: 60
 cluster_number: 4
 comp_max: 8
@@ -16,12 +16,12 @@ radial_offset_method: 'off'
 parity_opt: True
 echo_threshold: 0.0825
 dist_par_threshold: 0.5
-shift_factor: 3.1e-5
+shift_factor: 2.5e-5
 tracking: Null #'hungarian'
-gamma: .25
+gamma: .5
 
 logging: False
-plt_comp_opt: False
+plt_comp_opt: True
 plt_cluster_opt: False
 plt_frame_opt: True
 save_opt: True
