@@ -469,7 +469,7 @@ for dat_num in range(1, cfg.dat_num):
                     for k, pt in enumerate(pts):
                         
                         plt.rcParams.update({'font.size': 18})
-                        fig = plt.figure(figsize=(30/3*1.4, 15/3))
+                        fig = plt.figure(figsize=(30/3*1.3, 15/3))
                         gs = gridspec.GridSpec(2, 2)
                         ax1 = plt.subplot(gs[:, 1])
                         ax2 = plt.subplot(gs[1, 0])
@@ -483,43 +483,20 @@ for dat_num in range(1, cfg.dat_num):
 
                         ax1.imshow(bmode, vmin=bmode_limits[0], vmax=bmode_limits[1], extent=extent, aspect=aspect**-1, cmap='gray', origin='lower')
                         ax1.set_facecolor('#000000')
-                        ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=5, label='Transducer plane')
-                        ax1.plot(gt_pt[0], gt_pt[1], 'rx', markersize=8, label='Ground truth')
-                        ax1.plot(pa_pt[0], pa_pt[1], 'b+', markersize=8, label='Radial symmetry')
+                        ax1.plot(gt_pt[0], gt_pt[1], 'rx', markersize=12, label='Ground truth')
+                        ax1.plot(pa_pt[0], pa_pt[1], 'b+', markersize=12, label='Radial symmetry')
+                        ax1.plot(pt[0], pt[1], '1', color='cyan', markersize=12+2, label='Intersection')
                         xzc = np.array([cen_cens[:, pts_mask_num][:, k][0], cen_cens[:, pts_mask_num][:, k][1]]) / cfg.num_scale
                         ax1.set_ylim([0, max(param.z)])#ax1.set_ylim([min(xzc), max(abs(xzc))])#
                         ax1.set_xlim([min(param.x), max(param.x)])#ax1.set_xlim([min(xzc), max(abs(xzc))])#
-                        ax1.set_xlabel('Horizontal domain $x$ [m]')
-                        ax1.set_ylabel('Vertical domain $z$ [m]')
-                        #ax1.yaxis.set_label_position("right")
-                        #ax1.yaxis.tick_right()
-
-                        ax1.plot(pt[0], pt[1], '1', color='cyan', markersize=8+2, label='Ellipse intersect.')
-
-                        axins1 = zoomed_inset_axes(ax1, zoom=6+2-0.25, loc='upper right')
-                        axins1.imshow(bmode, extent=extent, aspect=aspect**-1, origin='lower', cmap='gray')
-
-                        # plot zoomed frame
-                        w = 3.0*param.wavelength
-                        x1, x2, y1, y2 = gt_pt[0]-w, gt_pt[0]+w, gt_pt[1]-w*aspect, gt_pt[1]+w*aspect
-                        axins1.set_xlim(x1, x2)
-                        axins1.set_ylim(y1, y2)
-                        axins1.yaxis.get_major_locator().set_params(nbins=7)
-                        axins1.xaxis.get_major_locator().set_params(nbins=7)
-                        axins1.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
-                        mark_inset(ax1, axins1, loc1=2, loc2=3, fc="none", ec='orange')
-                        axins1.spines['bottom'].set_color('orange')
-                        axins1.spines['top'].set_color('orange') 
-                        axins1.spines['right'].set_color('orange')
-                        axins1.spines['left'].set_color('orange')
-
-                        #ax1.text(pt[0], pt[1], s=str(dist_pars[k]), color='w')
-                        ax1.legend()
+                        #ax1.set_xlabel('Horizontal domain $x$ [m]')
+                        #ax1.set_ylabel('Vertical domain $z$ [m]')
 
                         mu_cch = np.repeat(np.repeat(comps_cch[..., 1], echo_per_sch, axis=1), 2, axis=0).flatten()[pts_mask_num][k] * param.fs * cfg.enlarge_factor
                         
                         # when is index k for left channel and when for right? answer: pts_idcs
                         pts_idx = int(pts_idcs[k])
+                        axins1_ells = []
                         for j, (ax, cen, val, vec, color) in enumerate(zip([ax2, ax3], [cen_cens[:, pts_mask_num][:, k], adj_cens[:, pts_mask_num][:, k]], [cen_vals[:, pts_mask_num][:, k], adj_vals[:, pts_mask_num][:, k]], [cen_vecs[:, pts_mask_num][:, k], adj_vecs[:, pts_mask_num][:, k]], ['g']+[['royalblue', 'y'][pts_idx]])):
                             
                             el_idx = cch_idcs_flat[k] if j==0 else sch_idcs_flat[k]
@@ -553,19 +530,20 @@ for dat_num in range(1, cfg.dat_num):
                             ax.set_xlabel('Radial distance $r$ [samples]')
                             #ax.set_ylabel('Amplitude $A_{%s}(r)$ [a.u.]' % el_idx)
                             ax.set_ylabel('Amplitude [a.u.]')
-                            ax.set_xlim([mu_cch-500, mu_cch+500])
+                            ax.set_xlim([mu_cch-600, mu_cch+400])
                             ax.grid(True)
 
                             # plot rx trajectory
                             ax1.plot([param.xe[el_idx*cfg.ch_gap], pt[0]], [0, pt[1]], color, linewidth=3, linestyle='dashed', label='Rx path ch. %s' % el_idx)
-                            ax1.legend(loc='lower right')
-                            axins1.plot([param.xe[el_idx*cfg.ch_gap], pt[0]], [0, pt[1]], color, linewidth=3, linestyle='dashed', label='Rx path ch. %s' % el_idx)
-                            
-                            axins1.plot(gt_pt[0], gt_pt[1], 'rx', markersize=15, label='Ground truth')
-                            axins1.plot(pa_pt[0], pa_pt[1], 'b+', markersize=15, label='Radial symmetry')   #str(pala_method)
+
+                            #axins1.plot([param.xe[el_idx*cfg.ch_gap], pt[0]], [0, pt[1]], color, linewidth=3, linestyle='dashed', label='Rx path ch. %s' % el_idx)
+
                             ell_axins1 = Ellipse(xy=xz, width=2*minor_axis_radius, height=2*major_axis_radius, angle=angle_deg, edgecolor=color, linewidth=3, fc='None', rasterized=True)
-                            axins1.add_artist(ell_axins1)
-                            axins1.plot(pt[0], pt[1], '1', color='cyan', markersize=15+2, label='Ellipse intersect.')
+                            axins1_ells.append(ell_axins1)
+                        
+                        # finish frame axis
+                        ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=8, label='Transducer plane')
+                        ax1.legend(framealpha=1)
 
                         # plot components
                         ax2.plot(np.stack([mu_cch,]*2), [dmin, dmax], color='red', label='Time-of-Arrival')
@@ -585,11 +563,36 @@ for dat_num in range(1, cfg.dat_num):
                         ax3.set_xlabel(xlabel='', visible=False)
 
                         #ax3.plot(np.stack([((toa_pars[k]-nonplanar_tdx)/param.c-param.t0) * param.fs * cfg.enlarge_factor,]*2), [min(result[par_ch_idcs[k], :]), max(result[par_ch_idcs[k], :])], color='pink', linestyle='dashdot', linewidth=2)
-                        plt.tight_layout()#pad=1.8)
-                        if k == 10:
+                        plt.tight_layout()#pad=1.8
+
+                        # plot zoomed frame
+                        w = 3.5*param.wavelength
+                        axins1 = zoomed_inset_axes(ax1, zoom=6+1, loc='upper right')
+                        axins1.imshow(bmode, extent=extent, aspect=aspect**-1, origin='lower', cmap='gray')
+                        x1, x2, y1, y2 = gt_pt[0]-w, gt_pt[0]+w, gt_pt[1]-w*aspect, gt_pt[1]+w*aspect
+                        axins1.set_xlim(x1, x2)
+                        axins1.set_ylim(y1, y2)
+                        axins1.yaxis.get_major_locator().set_params(nbins=7)
+                        axins1.xaxis.get_major_locator().set_params(nbins=7)
+                        axins1.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
+                        mark_inset(ax1, axins1, loc1=2, loc2=3, fc="none", ec='orange', lw=2)
+                        
+                        axins1.plot(gt_pt[0], gt_pt[1], 'rx', markersize=15, label='Ground truth')
+                        axins1.plot(pa_pt[0], pa_pt[1], 'b+', markersize=15, label='Radial symmetry')   #str(pala_method)
+                        for ell in axins1_ells:
+                            axins1.add_artist(ell)
+                        axins1.plot(pt[0], pt[1], '1', color='cyan', markersize=15+2, label='Intersection')
+                            
+                        # style for frame
+                        sides_list = ['bottom', 'top', 'right', 'left']
+                        [axins1.spines[s].set_color('orange') for s in sides_list]
+                        [axins1.spines[s].set_linewidth(2) for s in sides_list]
+
+                        if k == 10+0:
                             fig.patch.set_alpha(0)  # transparency
                             plt.savefig('./components_plot.pdf', format='pdf', backend='pdf', dpi=300, transparent=False)
                             print('saved')
+                        plt.close()
                         #plt.show()
 
             all_pts = np.vstack(all_pts_list)
@@ -656,38 +659,72 @@ for dat_num in range(1, cfg.dat_num):
 
             if cfg.plt_cluster_opt:
                 plt.rcParams.update({'font.size': 18})
-                fig = plt.figure(figsize=(30/3*1.45, 15/3))
+                fig = plt.figure(figsize=(30/3*1.4, 15/3))
                 gs = gridspec.GridSpec(1, 2)
                 ax1 = plt.subplot(gs[0, 0])
                 ax2 = plt.subplot(gs[0, 1])
 
                 ax1.imshow(bmode, vmin=bmode_limits[0], vmax=bmode_limits[1], extent=extent, aspect=aspect**-1, origin='lower', cmap='gray')
                 ax1.set_facecolor('#000000')
-                ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=5, label='Transducer plane')
-                ax1.plot(all_pts[:, 0], all_pts[:, 1], 'gx', label='all points', alpha=.2)
-                ax1.plot(rej_pts[:, 0], rej_pts[:, 1], '.', color='gray', label='rejected points', alpha=.2)
+                #ax1.plot(rej_pts[:, 0], rej_pts[:, 1], '.', color='gray', label='rejected points', alpha=.2)
                 #[ax1.text(rej_pts[i, 0], rej_pts[i, 1]+np.random.rand(1)*param.wavelength, s=str(rej_pts[i, 2]), color='orange') for i in range(len(rej_pts))]
-                ax1.plot((ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength, 'bx', label=pala_method)
-                ax1.plot(xpos[~np.isnan(xpos)], zpos[~np.isnan(zpos)], 'rx', label='ground-truth')
-                ax1.plot(np.array(reduced_pts)[:, 0], np.array(reduced_pts)[:, 1], 'c+', label='selected')
+                ax1.plot(xpos[~np.isnan(xpos)], zpos[~np.isnan(zpos)], marker='x', color='red', markersize=12, linestyle='', label='Ground-truth')
+                ax1.plot((ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength, marker='+', color='blue', markersize=12, linestyle='', label='Radial symmetry')
+                ax1.plot(all_pts[:, 0], all_pts[:, 1], marker='1', color='cyan', markersize=12+2, linestyle='', label='Intersections', alpha=.6)
+                ax1.plot(np.array(reduced_pts)[:, 0], np.array(reduced_pts)[:, 1], marker='.', color='orange', markersize=12, linestyle='', label='Centroid')
+                ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=8)   #, label='Transducer plane'
                 ax1.set_ylim([0, max(param.z)])
                 ax1.set_xlim([min(param.x), max(param.x)])
-                ax1.set_xlabel('Lateral domain $x$ [m]')
-                ax1.set_ylabel('Axial distance $z$ [m]')
-                ax1.legend()
+                ax1.legend(framealpha=1)
+                #ax1.set_xlabel('Horizontal domain $x$ [m]')
+                #ax1.set_ylabel('Vertical domain $z$ [m]')
 
                 ax2.imshow(np.abs(iq_mat['IQ'][..., frame_idx]), cmap='gray')
-                ax2.plot(xpos[~np.isnan(xpos)]/param.wavelength-PData['Origin'][0], zpos[~np.isnan(zpos)]/param.wavelength-PData['Origin'][2], 'rx', label='ground-truth')
-                ax2.plot(np.array(reduced_pts)[:, 0]/param.wavelength-PData['Origin'][0], np.array(reduced_pts)[:, 1]/param.wavelength-PData['Origin'][2], 'c+', label='selected')
-                ax2.plot(ref_xpos-PData['Origin'][0], ref_zpos-PData['Origin'][2], 'bx', label=pala_method)
-                ax2.legend()
-                #for i, l in enumerate(labels_unique):
-                #    if sum(l==labels) > cfg.cluster_number: 
-                #        ax1.plot(all_pts[:, 0][l==labels], all_pts[:, 1][l==labels], marker='.', linestyle='', color=['brown', 'pink', 'yellow', 'white', 'gray', 'violet', 'green', 'blue'][i%8])
-                for i, tx_gap_pts in enumerate(all_pts_list):
-                    ax1.plot(tx_gap_pts[:, 0], tx_gap_pts[:, 1], marker='.', linestyle='', color=['brown', 'pink', 'yellow', 'white', 'gray', 'cyan', 'green', 'blue'][i%8], label=str(cfg.tx_gaps[i]))
-                ax1.legend()
-                plt.savefig('./cluster_plot.pdf', format='pdf', backend='pdf', dpi=300, transparent=True)
+                ax2.plot(xpos[~np.isnan(xpos)]/param.wavelength-PData['Origin'][0], zpos[~np.isnan(zpos)]/param.wavelength-PData['Origin'][2], 'rx', linestyle='', label='Ground-truth')
+                ax2.plot(ref_xpos-PData['Origin'][0], ref_zpos-PData['Origin'][2], 'bx', label='Radial symmetry')
+                ax2.plot(np.array(reduced_pts)[:, 0]/param.wavelength-PData['Origin'][0], np.array(reduced_pts)[:, 1]/param.wavelength-PData['Origin'][2], marker='1', color='cyan', linestyle='', label='Intersections')
+                ax2.legend(framealpha=1)
+
+                # switch all ticks off
+                ax1.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
+                ax2.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
+
+                plt.tight_layout()
+
+                # plot zoomed frame
+                gt_pt_idx = 9-1
+                gt_pt = np.array([xpos[~np.isnan(xpos)], zpos[~np.isnan(zpos)]])[:, gt_pt_idx]
+                pa_pt_idx = np.argmin(abs(np.array([(ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength]) - gt_pt[:, None]).sum(0))
+                pa_pt = np.array([(ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength])[:, pa_pt_idx]
+                pt_idx = np.argmin(abs(np.array(reduced_pts).T - gt_pt[:, None]).sum(0))
+                pt = np.array(reduced_pts)[pt_idx, :].T
+
+                w = 2.5*param.wavelength
+                axins1 = zoomed_inset_axes(ax1, zoom=6+4, loc='upper right')
+                axins1.imshow(bmode, extent=extent, aspect=aspect**-1, origin='lower', cmap='gray')
+                x1, x2, y1, y2 = gt_pt[0]-w, gt_pt[0]+w, gt_pt[1]-w*aspect, gt_pt[1]+w*aspect
+                axins1.set_xlim(x1, x2)
+                axins1.set_ylim(y1, y2)
+                axins1.yaxis.get_major_locator().set_params(nbins=7)
+                axins1.xaxis.get_major_locator().set_params(nbins=7)
+                axins1.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
+                mark_inset(ax1, axins1, loc1=2, loc2=4, fc="none", ec='orange', lw=2)
+                
+                axins1.plot(gt_pt[0], gt_pt[1], 'rx', markersize=15, label='Ground truth')
+                axins1.plot(pa_pt[0], pa_pt[1], 'b+', markersize=15, label='Radial symmetry')
+                axins1.plot(all_pts[:, 0], all_pts[:, 1], marker='1', color='cyan', markersize=12, linestyle='', label='Intersections', alpha=.3)
+                axins1.plot(pt[0], pt[1], '.', color='orange', markersize=15+2, label='Centroid')
+
+                # style for frame
+                sides_list = ['bottom', 'top', 'right', 'left']
+                [axins1.spines[s].set_color('orange') for s in sides_list]
+                [axins1.spines[s].set_linewidth(2) for s in sides_list]
+        
+                #for i, tx_gap_pts in enumerate(all_pts_list):
+                    #ax1.plot(tx_gap_pts[:, 0], tx_gap_pts[:, 1], marker='.', linestyle='', color=['brown', 'pink', 'yellow', 'white', 'gray', 'cyan', 'green', 'blue'][i%8], label=str(cfg.tx_gaps[i]))
+                    #axins1.plot(tx_gap_pts[:, 0], tx_gap_pts[:, 1], marker='.', linestyle='', color=['brown', 'pink', 'yellow', 'white', 'gray', 'cyan', 'green', 'blue'][i%8], label=str(cfg.tx_gaps[i]))
+                fig.patch.set_alpha(0)  # transparency
+                plt.savefig('./cluster_plot.pdf', format='pdf', backend='pdf', dpi=300, transparent=False)
                 plt.show()
 
 # total errors over all frames
