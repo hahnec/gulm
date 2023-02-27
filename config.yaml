@@ -1,4 +1,4 @@
-device: 'cuda' #'cpu'  #
+device: 'cuda' #'cuda'  #
 ch_gap: 8 #16 #
 frame_batch_size: 1
 enlarge_factor: 60
@@ -24,7 +24,7 @@ noise_db: -40
 logging: False
 plt_comp_opt: True
 plt_cluster_opt: False
-plt_frame_opt: True
+plt_frame_opt: False
 save_opt: True
 
 data_path: PALA_data_InSilicoFlow/  #PALA_data_InVivoRatBrain #
