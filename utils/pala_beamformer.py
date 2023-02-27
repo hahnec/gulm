@@ -7,15 +7,15 @@ import numpy as np
 bf_demod_100_bw2iq = lambda rf_100bw: rf_100bw[0::2, ...] - 1j*rf_100bw[1::2, ...]
 
 
-def decompose_frame(P, rf_frame):
+def decompose_frame(rf_frame, angle_num, sample_num):
 
     rf_iq_frame = []
     # iterate over number of transmitted angles
-    for i_tx in range(P['numTx']):
+    for i_tx in range(angle_num):
 
         # decompose stacked channels in sample domain for all angles
-        idx_list = i_tx*P['NDsample'] + np.arange(P['NDsample'])
-        rf_i = rf_frame[idx_list, :]
+        idx_list = i_tx*sample_num + np.arange(sample_num)
+        rf_i = rf_frame[idx_list, ...]
 
         # convert 100 bandwidth data to IQ signal ?
         rf_iq = bf_demod_100_bw2iq(rf_i)

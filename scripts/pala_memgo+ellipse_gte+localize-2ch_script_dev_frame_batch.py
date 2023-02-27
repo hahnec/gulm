@@ -222,7 +222,7 @@ for dat_num in range(1, cfg.dat_num):
     for frame_batch_ptr in range(frame_start, frame_start+cfg.frame_num, frame_batch_size):
 
         # rf_iq_frame dimensions: frames x angles x samples x channels
-        rf_iq_frames = np.array([decompose_frame(P, RFdata[..., frame_idx]) for frame_idx in range(frame_batch_ptr, frame_batch_ptr+frame_batch_size)])
+        rf_iq_frames = np.array([decompose_frame(RFdata[..., frame_idx], int(P['numTx']), int(P['NDsample'])) for frame_idx in range(frame_batch_ptr, frame_batch_ptr+frame_batch_size)])
 
         # convert IQ to RF data
         start = time.perf_counter()
