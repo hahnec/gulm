@@ -233,10 +233,10 @@ for dat_num in range(1, cfg.dat_num):
             # add noise according to PALA study
             data_batch = add_pala_noise(data_batch, clutter_db=cfg.noise_db)
             # bandpass filter to counteract impact of noise
-            data_batch = bandpass_filter(data_batch.T, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor).T
+            data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor)
 
         # prepare variables for optimization
-        data_batch = torch.tensor(data_batch.copy(), dtype=torch.double, device=cfg.device)
+        data_batch = torch.tensor(data_batch, dtype=torch.double, device=cfg.device)
         t = torch.arange(0, len(data_batch[:, 0])/param.fs/cfg.enlarge_factor, 1/param.fs/cfg.enlarge_factor, device=data_batch.device, dtype=data_batch.dtype)
 
         # prepare MEMGO performance measurement

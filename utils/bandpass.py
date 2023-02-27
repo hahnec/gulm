@@ -20,7 +20,7 @@ def bandpass_filter(channel_data, freq_cen=None, freq_smp=None):
     lo, hi = max(0, lo), min(2*freq_cen-np.spacing(1), hi)
 
     sos = signal.butter(5, [lo, hi], btype='band', output='sos', fs=freq_smp)
-    y = signal.sosfiltfilt(sos, channel_data, axis=-1)
+    y = signal.sosfiltfilt(sos, channel_data, axis=0)
 
     return y
 
