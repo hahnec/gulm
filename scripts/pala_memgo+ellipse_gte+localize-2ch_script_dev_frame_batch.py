@@ -233,7 +233,9 @@ for dat_num in range(1, cfg.dat_num):
             # add noise according to PALA study
             data_batch = add_pala_noise(data_batch, clutter_db=cfg.noise_db)
             # bandpass filter to counteract impact of noise
+            start = time.perf_counter()
             data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor)
+            print('BP-filter time: %s' % str(time.perf_counter()-start))
 
         # prepare variables for optimization
         data_batch = torch.from_numpy(data_batch.copy()).to(device=cfg.device)
