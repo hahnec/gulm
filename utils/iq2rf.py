@@ -2,7 +2,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 
-def iq2rf(iq_data, mod_freq, upsample_factor=10):
+def iq2rf(iq_data, mod_freq, upsample_factor=1):
 
     x = np.linspace(0, len(iq_data)/mod_freq, num=len(iq_data), endpoint=True)
     t = np.linspace(0, len(iq_data)/mod_freq, num=int(len(iq_data)*upsample_factor), endpoint=True)
