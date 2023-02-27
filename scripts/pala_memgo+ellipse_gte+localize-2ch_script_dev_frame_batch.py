@@ -236,7 +236,7 @@ for dat_num in range(1, cfg.dat_num):
             data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor)
 
         # prepare variables for optimization
-        data_batch = np.ascontiguousarray(np.flip(data_batch, axis=0)) # enforce positive stride
+        data_batch = data_batch[..., ::-1]-np.zeros_like(data_batch) # enforce positive stride
         data_batch = torch.from_numpy(data_batch).to(device=cfg.device)
         t = torch.arange(0, len(data_batch[:, 0])/param.fs/cfg.enlarge_factor, 1/param.fs/cfg.enlarge_factor, device=data_batch.device, dtype=data_batch.dtype)
 
