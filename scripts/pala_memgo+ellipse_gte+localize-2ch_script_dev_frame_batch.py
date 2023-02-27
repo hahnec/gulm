@@ -149,7 +149,7 @@ for dat_num in range(1, cfg.dat_num):
     rf_fname = rel_path / 'RF' / ('PALA_InSilicoFlow_RF'+str(dat_num).zfill(3)+'.mat')
     rf_mat = scipy.io.loadmat(rf_fname)
 
-    if cfg.plt_comp_opt or cfg.plt_frame_opt:
+    if cfg.plt_comp_opt or cfg.plt_cluster_opt:
         iq_fname = rel_path / 'IQ' / ('PALA_InSilicoFlow_IQ'+str(dat_num).zfill(3)+'.mat')
         iq_mat = scipy.io.loadmat(iq_fname)
 
