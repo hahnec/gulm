@@ -81,8 +81,11 @@ def load_ulm_data(data_path, expr='pace'):
     # load frame data
     frames = []
     for fname in fnames:
-         # skip files which do not contain expression
-        if fname.name.__contains__(expr): frames.append(np.loadtxt(fname, delimiter=',', skiprows=1))
+        # skip files which do not contain expression
+        try:
+            if fname.name.__contains__(expr): frames.append(np.loadtxt(fname, delimiter=',', skiprows=1))
+        except UserWarning:
+            frames.append(np.array([[],[]]).T)
     assert len(frames) > 0, 'No frames found'
 
     return frames
