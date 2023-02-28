@@ -16,6 +16,9 @@ def render_ulm(frames, tracking=None, expr='', plot_opt=False, cmap_opt=False, u
     wavelength = 9.856e-05
     origin = np.array([-72,  16, 0], dtype=int)
 
+    # remove empty arrays
+    frames = [f for f in frames if f.size > 0]
+
     if tracking == 'hungarian':
         # init variables
         min_len = 15
@@ -82,10 +85,10 @@ def load_ulm_data(data_path, expr='pace'):
     frames = []
     for fname in fnames:
         # skip files which do not contain expression
-        try:
-            if fname.name.__contains__(expr): frames.append(np.loadtxt(fname, delimiter=',', skiprows=1))
-        except UserWarning:
-            frames.append(np.array([[],[]]).T)
+        if fname.name.__contains__(expr):
+            arr = np.loadtxt(fname, delimiter=',', skiprows=1)
+            if arr.size == 0: arr = np.array([[],[]]).T     # change dimensions of empty array
+            frames.append(arr)
     assert len(frames) > 0, 'No frames found'
 
     return frames
