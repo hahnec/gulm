@@ -16,6 +16,7 @@ from pathlib import Path
 from omegaconf import OmegaConf
 import wandb
 from skimage.metrics import structural_similarity
+from scipy.interpolate import interp1d
 
 from multimodal_emg.batch_staged_memgo import batch_staged_memgo
 from gte_intersect.ellipse import EllipseIntersection
@@ -26,7 +27,6 @@ from utils.iq2rf import iq2rf
 from utils.speckle_noise import add_pala_noise
 from utils.bandpass import bandpass_filter
 
-# tbd: replace t[echo_list] with batch_echo_array
 
 def angle_amplitude_ratio(amplitude, xe_pos, pt):
     
@@ -143,7 +143,13 @@ for dat_num in range(1, cfg.dat_num):
     pos_fname = rel_path / 'PALA_InSilicoFlow_v3_pos_Tracks_dt.mat'
     pos_mat = scipy.io.loadmat(pos_fname)
 
-    res_fname = rel_path / 'Results' / 'matlab_wo_noise' / ('PALA_InSilicoFlow_raw_'+str(dat_num)+'.mat')   #.zfill(3)
+    if np.isreal(cfg.noise_db) and cfg.noise_db < 0 and False:
+        assert (cfg.noise_db%5 == 0) and (10 <= abs(cfg.noise_db) <=60), 'Noise level not available for PALA'
+        res_fname = rel_path / 'Results' / ('PALA_InSilicoFlow_Tracks_multi_'+str(abs(cfg.noise_db))+'dB.mat')
+        track_key = 'Track_tot'
+    else:
+        res_fname = rel_path / 'Results' / 'matlab_wo_noise' / ('PALA_InSilicoFlow_raw_'+str(dat_num)+'.mat')
+        track_key = 'Track_raw'
     res_mat = scipy.io.loadmat(res_fname)
 
     rf_fname = rel_path / 'RF' / ('PALA_InSilicoFlow_RF'+str(dat_num).zfill(3)+'.mat')
@@ -154,9 +160,10 @@ for dat_num in range(1, cfg.dat_num):
         iq_mat = scipy.io.loadmat(iq_fname)
 
     pala_local_methods = [el[0] for el in res_mat['listAlgo'][0]]
-    pala_local_results = {m: arr for arr, m in zip(res_mat['Track_raw'][0], pala_local_methods)}
+    pala_local_results = {m: arr for arr, m in zip(res_mat[track_key][0], pala_local_methods)}
     pala_method = pala_local_methods[-1]
     ref_pts = pala_local_results[pala_method]
+    del res_mat
 
     mat2dict = lambda mat: dict([(k[0], v.squeeze()) for v, k in zip(mat[0][0], list(mat.dtype.descr))])
 
@@ -225,17 +232,23 @@ for dat_num in range(1, cfg.dat_num):
         rf_iq_frames = np.array([decompose_frame(RFdata[..., frame_idx], int(P['numTx']), int(P['NDsample'])) for frame_idx in range(frame_batch_ptr, frame_batch_ptr+frame_batch_size)])
 
         # convert IQ to RF data
-        start = time.perf_counter()
-        data_batch = iq2rf(np.hstack(rf_iq_frames[:, cfg.wave_idx, :, ::cfg.ch_gap]), mod_freq=param.f0, upsample_factor=cfg.enlarge_factor)
-        print('Interpolation time: %s' % str(time.perf_counter()-start))
-        
+        data_batch = iq2rf(np.hstack(rf_iq_frames[:, cfg.wave_idx, :, ::cfg.ch_gap]), mod_freq=param.f0, upsample_factor=10)
+
         if np.isreal(cfg.noise_db) and cfg.noise_db < 0:
             # add noise according to PALA study
             data_batch = add_pala_noise(data_batch, clutter_db=cfg.noise_db)
             # bandpass filter to counteract impact of noise
             start = time.perf_counter()
-            data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor)
+            data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*10)#cfg.enlarge_factor)
             print('BP-filter time: %s' % str(time.perf_counter()-start))
+
+        # upsample
+        start = time.perf_counter()
+        x = np.linspace(0, len(data_batch)/param.f0, num=len(data_batch), endpoint=True)
+        t = np.linspace(0, len(data_batch)/param.f0, num=int(len(data_batch)*cfg.enlarge_factor/10), endpoint=True)
+        f = interp1d(x, data_batch, axis=0)
+        data_batch = f(t)
+        print('Interpolation time: %s' % str(time.perf_counter()-start))
 
         # prepare variables for optimization
         data_batch = torch.from_numpy(data_batch.copy()).to(device=cfg.device)
