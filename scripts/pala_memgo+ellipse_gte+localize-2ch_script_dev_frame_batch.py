@@ -55,7 +55,7 @@ def get_amp_grad(data, toa, phi_shift, ch_idx, grad_step=1):
 
     return sample_amp, gradie_amp
 
-def get_overall_phase_shift(data_arr, toas, phi_shifts, ch_idx, ch_gap, cch_sample, cch_grad, grad_step=1):
+def get_overall_phase_shift(data_arr, toas, phi_shifts, ch_idx, cch_sample, cch_grad, grad_step=1):
     
     phi_shifts[-np.pi > phi_shifts] += +2*np.pi
     phi_shifts[+np.pi < phi_shifts] += -2*np.pi
@@ -381,8 +381,8 @@ for dat_num in range(1, cfg.dat_num):
                 phi_shifts_lch = (comps_lch[..., 5] - np.repeat(comps_cch[..., 5], echo_per_sch, axis=1))
                 phi_shifts_rch = (comps_rch[..., 5] - np.repeat(comps_cch[..., 5], echo_per_sch, axis=1))
                 phase_grad_step = 1 #int((param.wavelength/8)/param.c*param.fs*cfg.enlarge_factor)
-                phi_shifts_lch = get_overall_phase_shift(data_arr, toas_lch, phi_shifts_lch, (ch_idcs-tx_gap)[:, None], cfg.ch_gap, np.repeat(cch_sample, 3, axis=1), np.repeat(cch_grad, 3, axis=1), grad_step=phase_grad_step)
-                phi_shifts_rch = get_overall_phase_shift(data_arr, toas_rch, phi_shifts_rch, (ch_idcs+tx_gap)[:, None], cfg.ch_gap, np.repeat(cch_sample, 3, axis=1), np.repeat(cch_grad, 3, axis=1), grad_step=phase_grad_step)
+                phi_shifts_lch = get_overall_phase_shift(data_arr, toas_lch, phi_shifts_lch, (ch_idcs-tx_gap)[:, None], np.repeat(cch_sample, 3, axis=1), np.repeat(cch_grad, 3, axis=1), grad_step=phase_grad_step)
+                phi_shifts_rch = get_overall_phase_shift(data_arr, toas_rch, phi_shifts_rch, (ch_idcs+tx_gap)[:, None], np.repeat(cch_sample, 3, axis=1), np.repeat(cch_grad, 3, axis=1), grad_step=phase_grad_step)
                 toas_lch -= phi_shifts_lch/(2*np.pi*param.fs) * param.c
                 toas_rch -= phi_shifts_rch/(2*np.pi*param.fs) * param.c
 
@@ -454,7 +454,7 @@ for dat_num in range(1, cfg.dat_num):
                     phi_shift_pars = comp_pars[:, 5] - s[pts_mask_num, 5]
                     cch_sample_par = np.repeat(np.concatenate([cch_sample, cch_sample], axis=-1).flatten(), echo_per_sch)[pts_mask_num]
                     cch_grad_par = np.repeat(np.concatenate([cch_grad, cch_grad], axis=-1).flatten(), echo_per_sch)[pts_mask_num]
-                    phi_shift_pars = get_overall_phase_shift(data_arr, toa_pars, phi_shift_pars, par_ch_idcs, cfg.ch_gap, cch_sample_par, cch_grad_par)
+                    phi_shift_pars = get_overall_phase_shift(data_arr, toa_pars, phi_shift_pars, par_ch_idcs, cch_sample_par, cch_grad_par)
 
                     toa_pars -= phi_shift_pars/(2*np.pi*param.fs) * param.c
                     dist_pars = abs((toa_pars-nonplanar_tdx)/param.c-param.t0 - mu_pars) * param.fs
