@@ -96,6 +96,7 @@ cfg = OmegaConf.load(str(script_path.parent / 'config_invivo.yaml'))
 cfg = OmegaConf.merge(cfg, OmegaConf.from_cli())
 
 assert (1000/cfg.frame_batch_size)%1 == 0, 'frame_batch_size must be multiple of 1000'
+assert max(cfg.tx_gaps) < cfg.ch_gap, 'maximum tx_gap too large'
 
 if cfg.logging: 
     wandb.init(project="pulm", name=None, config=cfg, group=None)
