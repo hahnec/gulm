@@ -1,4 +1,4 @@
-device: 'cuda' #'cuda'  #
+device: 'cpu' #'cuda'  #
 ch_gap: 8 #16 #
 frame_batch_size: 1
 enlarge_factor: 60
@@ -19,13 +19,13 @@ dist_par_threshold: 0.5
 shift_factor: 2.5e-5
 tracking: Null #'hungarian'
 gamma: .9
-noise_db: -30 #0 #
+clutter_db: -30 #0 #
 
-logging: True
+logging: False
 plt_comp_opt: False
 plt_cluster_opt: False
 plt_frame_opt: False
-save_opt: True
+save_opt: False
 
 data_path: PALA_data_InSilicoFlow/
 invivo_path: Rat18_2D_InVivoBrain/
