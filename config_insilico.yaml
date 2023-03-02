@@ -8,26 +8,28 @@ max_iter: 2
 wave_idx: 1 #1 #0
 num_scale: 1e12 #1e6 #
 tx_gaps: [1, 2, 3, 4] #, 5, 6, 8, 10, 12]
-frame_num: 30
+frame_num: 10
 dat_num: 2
 intersect_method: 'gt'
 phase_refinement_opt: True
 radial_offset_method: 'off'
 parity_opt: True
-echo_threshold: 0.0825
+echo_threshold: 0.15 #0.0825 #0.2 #
 dist_par_threshold: 0.5
 shift_factor: 2.5e-5
 tracking: Null #'hungarian'
 gamma: .9
-noise_db: -40
+noise_db: -30 #0 #
 
-logging: False
-plt_comp_opt: True
+logging: True
+plt_comp_opt: False
 plt_cluster_opt: False
 plt_frame_opt: False
 save_opt: True
 
-data_path: PALA_data_InSilicoFlow/  #PALA_data_InVivoRatBrain #
+data_path: PALA_data_InSilicoFlow/
+invivo_path: Rat18_2D_InVivoBrain/
 ubx_dir: /storage/homefs/ch21z139/PALA_dataset/${data_path}
-map_dir: /home/chris/LocalDatasets/03_PALA/${data_path}
-data_dir: ${map_dir}
+loc_dir: /home/chris/LocalDatasets/03_PALA/${data_path}
+map_dir: /home/chris/UbelixWorkspaces/artorg_aimi/ws_00000/chris/
+data_dir: ${loc_dir}

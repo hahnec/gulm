@@ -90,7 +90,7 @@ def get_overall_phase_shift(data_arr, toas, phi_shifts, ch_idx, cch_sample, cch_
 script_path = Path(__file__).parent.resolve()
 
 # load config
-cfg = OmegaConf.load(str(script_path.parent / 'config.yaml'))
+cfg = OmegaConf.load(str(script_path.parent / 'config_invivo.yaml'))
 
 # override config with CLI
 cfg = OmegaConf.merge(cfg, OmegaConf.from_cli())
@@ -125,7 +125,7 @@ if cfg.plt_comp_opt or cfg.plt_frame_opt:
         "font.family": "Helvetica"
     })
 
-rel_path = Path(cfg.map_dir) / cfg.invivo_path
+rel_path = Path(cfg.map_dir) / cfg.data_path
 
 # initialize intersector
 ell_intersector = EllipseIntersection()
@@ -252,9 +252,10 @@ for dat_num in range(1, cfg.dat_num):
         t = torch.arange(0, len(data_batch[:, 0])/param.fs/cfg.enlarge_factor, 1/param.fs/cfg.enlarge_factor, device=data_batch.device, dtype=data_batch.dtype)
 
         # power law compensation
-        max_val = data_batch.max() * 1.5
-        data_batch = compensate_pow_law(data_batch, x=t, a=2, b=.8, c=param.c, fkHz=param.f0, sample_rate=param.fs*cfg.enlarge_factor)
-        data_batch = data_batch/data_batch.max() * max_val
+        if cfg.pow_law_opt:
+            max_val = data_batch.max() * 1.5
+            data_batch = compensate_pow_law(data_batch, x=t, a=2, b=.8, c=param.c, fkHz=param.f0, sample_rate=param.fs*cfg.enlarge_factor)
+            data_batch = data_batch/data_batch.max() * max_val
 
         # prepare MEMGO performance measurement
         torch.cuda.synchronize()
@@ -601,8 +602,8 @@ for dat_num in range(1, cfg.dat_num):
                 ax1.imshow(bmode, vmin=bmode_limits[0], vmax=bmode_limits[1], extent=extent, aspect=aspect**-1, origin='lower', cmap='gray')
                 ax1.set_facecolor('#000000')
                 ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=5, label='Transducer plane')
-                ax1.plot(all_pts[:, 0], all_pts[:, 1], 'gx', label='all points', alpha=.2)
-                ax1.plot(rej_pts[:, 0], rej_pts[:, 1], '.', color='gray', label='rejected points', alpha=.2)
+                ax1.plot(all_pts[:, 0], all_pts[:, 1], 'gx', label='all points', alpha=.4)
+                ax1.plot(rej_pts[:, 0], rej_pts[:, 1], '.', color='orange', label='rejected points', alpha=.2)
                 #[ax1.text(rej_pts[i, 0], rej_pts[i, 1]+np.random.rand(1)*param.wavelength, s=str(rej_pts[i, 2]), color='orange') for i in range(len(rej_pts))]
                 ax1.plot(np.array(reduced_pts)[:, 0], np.array(reduced_pts)[:, 1], 'c+', label='selected')
                 ax1.set_ylim([0, max(param.z)])
