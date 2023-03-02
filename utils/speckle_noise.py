@@ -5,7 +5,7 @@ from scipy.ndimage import gaussian_filter
 def add_pala_noise(iq, clutter_db=-60, power=-2, impedance=.2, amp_culler_db=10, sigma=1.5):
 
     awgn = awgn_noise(iq.size, power, impedance).reshape(*iq.shape)
-    swgn = awgn * iq.max()**2 * 10**((amp_culler_db+clutter_db)/20+clutter_db/20)
+    swgn = awgn * iq.max()**2 * 10**((amp_culler_db+2*clutter_db)/20)
     iq_filt = gaussian_filter(swgn, sigma)
     iq_speckle = iq + iq_filt
 
