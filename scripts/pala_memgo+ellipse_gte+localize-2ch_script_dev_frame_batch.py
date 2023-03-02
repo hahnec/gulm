@@ -239,7 +239,7 @@ for dat_num in range(1, cfg.dat_num):
 
         if np.isreal(cfg.noise_db) and cfg.noise_db < 0:
             # add noise according to PALA study
-            data_batch = add_pala_noise(data_batch, clutter_db=cfg.noise_db, sigma=1.5*2)   # double sigma due to upsampling
+            data_batch = add_pala_noise(data_batch, clutter_db=cfg.noise_db, sigma=1.5)
             # bandpass filter to counteract impact of noise
             start = time.perf_counter()
             data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor, sw=0.6)
