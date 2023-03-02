@@ -232,23 +232,15 @@ for dat_num in range(1, cfg.dat_num):
         rf_iq_frames = np.array([decompose_frame(RFdata[..., frame_idx], int(P['numTx']), int(P['NDsample'])) for frame_idx in range(frame_batch_ptr, frame_batch_ptr+frame_batch_size)])
 
         # convert IQ to RF data
-        data_batch = iq2rf(np.hstack(rf_iq_frames[:, cfg.wave_idx, :, ::cfg.ch_gap]), mod_freq=param.f0, upsample_factor=10)
+        data_batch = iq2rf(np.hstack(rf_iq_frames[:, cfg.wave_idx, :, ::cfg.ch_gap]), mod_freq=param.f0, upsample_factor=cfg.enlarge_factor)
 
         if np.isreal(cfg.noise_db) and cfg.noise_db < 0:
             # add noise according to PALA study
             data_batch = add_pala_noise(data_batch, clutter_db=cfg.noise_db)
             # bandpass filter to counteract impact of noise
             start = time.perf_counter()
-            data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*10)#cfg.enlarge_factor)
+            data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor)
             print('BP-filter time: %s' % str(time.perf_counter()-start))
-
-        # upsample
-        start = time.perf_counter()
-        x = np.linspace(0, len(data_batch)/param.f0, num=len(data_batch), endpoint=True)
-        t = np.linspace(0, len(data_batch)/param.f0, num=int(len(data_batch)*cfg.enlarge_factor/10), endpoint=True)
-        f = interp1d(x, data_batch, axis=0)
-        data_batch = f(t)
-        print('Interpolation time: %s' % str(time.perf_counter()-start))
 
         # prepare variables for optimization
         data_batch = torch.from_numpy(data_batch.copy()).to(device=cfg.device)
