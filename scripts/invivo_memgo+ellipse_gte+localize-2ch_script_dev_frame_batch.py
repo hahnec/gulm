@@ -100,22 +100,7 @@ assert max(cfg.tx_gaps) < cfg.ch_gap, 'maximum tx_gap too large'
 
 if cfg.logging: 
     wandb.init(project="pulm", name=None, config=cfg, group=None)
-    wandb.define_metric('PULM/RMSE', step_metric='frame')
-    wandb.define_metric('PULM/Precision', step_metric='frame')
-    wandb.define_metric('PULM/Recall', step_metric='frame')
-    wandb.define_metric('PULM/Jaccard', step_metric='frame')
     wandb.define_metric('PULM/MeanFrameConfidence', step_metric='frame')
-    wandb.define_metric('PULM/TruePositive', step_metric='frame')
-    wandb.define_metric('PULM/FalsePositive', step_metric='frame')
-    wandb.define_metric('PULM/FalseNegative', step_metric='frame')
-    wandb.define_metric('PALA/RMSE', step_metric='frame')
-    wandb.define_metric('PALA/Precision', step_metric='frame')
-    wandb.define_metric('PALA/Recall', step_metric='frame')
-    wandb.define_metric('PALA/Jaccard', step_metric='frame')
-    wandb.define_metric('PALA/MeanFrameConfidence', step_metric='frame')
-    wandb.define_metric('PALA/TruePositive', step_metric='frame')
-    wandb.define_metric('PALA/FalsePositive', step_metric='frame')
-    wandb.define_metric('PALA/FalseNegative', step_metric='frame')
 
 output_path = script_path / 'invivo_frames'
 if cfg.save_opt and not output_path.exists(): output_path.mkdir()
@@ -139,7 +124,7 @@ frame_batch_size = cfg.frame_batch_size
 results_path = Path(cfg.data_dir) / 'Results' / 'PALA_InVivoRatBrain_MatOut_multi.mat'
 out_mat = scipy.io.loadmat(str(results_path))
 
-blind_zone_idx = 1500//cfg.enlarge_factor
+blind_zone_idx = 3*(1500//cfg.enlarge_factor)//2
 
 acc_pace_errs = []
 acc_pala_errs = []
@@ -165,7 +150,6 @@ for dat_num in range(1, cfg.dat_num):
     del seq_mat
 
     RFdata = rf_mat['RData']
-    #ListPos = rf_mat['ListPos']
     #Media = mat2dict(rf_mat['Media'])
     P = mat2dict(rf_mat['P'])
 
@@ -233,8 +217,8 @@ for dat_num in range(1, cfg.dat_num):
         rf_iq_frames[..., :blind_zone_idx, :] = 0
 
         # crop left and right side of image (transducer array)
-        rf_iq_frames_gap = rf_iq_frames[..., 32:-32]
-        param.xe_gap = param.xe[32:-32]
+        rf_iq_frames_gap = rf_iq_frames#[..., 48:-48]
+        param.xe_gap = param.xe#[48:-48]
 
         rf_iq_frames_gap = rf_iq_frames_gap[:, cfg.wave_idx, :, ::cfg.ch_gap]
 
@@ -245,7 +229,7 @@ for dat_num in range(1, cfg.dat_num):
         
         # BP-filter
         start = time.perf_counter()
-        data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor, sw=0.6)
+        data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor, sw=0.4)
         print('BP-filter time: %s' % str(time.perf_counter()-start))
 
         # prepare variables for optimization
@@ -255,7 +239,7 @@ for dat_num in range(1, cfg.dat_num):
         # power law compensation
         if cfg.pow_law_opt:
             max_val = data_batch.max() * 1.5
-            data_batch = compensate_pow_law(data_batch, x=t, a=2, b=.8, c=param.c, fkHz=param.f0, sample_rate=param.fs*cfg.enlarge_factor)
+            data_batch = compensate_pow_law(data_batch, x=t, a=140.1771, b=1.1578, c=param.c, fkHz=param.f0, sample_rate=param.fs*cfg.enlarge_factor)
             data_batch = data_batch/data_batch.max() * max_val
 
         # prepare MEMGO performance measurement
@@ -453,7 +437,7 @@ for dat_num in range(1, cfg.dat_num):
                     toa_pars -= phi_shift_pars/(2*np.pi*param.fs) * param.c
                     dist_pars = abs((toa_pars-nonplanar_tdx)/param.c-param.t0 - mu_pars) * param.fs
 
-                    valid = dist_pars < cfg.dist_par_threshold  # .5
+                    valid = dist_pars < cfg.dist_par_threshold
                 else:
                     dist_pars = np.ones(pts.shape[0])*float('NaN')
                     valid = np.ones(pts.shape[0], dtype=bool)
@@ -484,7 +468,7 @@ for dat_num in range(1, cfg.dat_num):
 
                         ax1.imshow(bmode, vmin=bmode_limits[0], vmax=bmode_limits[1], extent=extent, aspect=aspect**-1, cmap='gray', origin='lower')
                         ax1.set_facecolor('#000000')
-                        ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=5, label='Transducer plane')
+                        ax1.plot([min(param.xe_gap), max(param.xe_gap)], [0, 0], color='gray', linewidth=5, label='Transducer plane')
                         xzc = np.array([cen_cens[:, pts_mask_num][:, k][0], cen_cens[:, pts_mask_num][:, k][1]]) / cfg.num_scale
                         ax1.set_ylim([0, max(param.z)])#ax1.set_ylim([min(xzc), max(abs(xzc))])#
                         ax1.set_xlim([min(param.x), max(param.x)])#ax1.set_xlim([min(xzc), max(abs(xzc))])#
@@ -602,11 +586,11 @@ for dat_num in range(1, cfg.dat_num):
 
                 ax1.imshow(bmode, vmin=bmode_limits[0], vmax=bmode_limits[1], extent=extent, aspect=aspect**-1, origin='lower', cmap='gray')
                 ax1.set_facecolor('#000000')
-                ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=5, label='Transducer plane')
+                ax1.plot([min(param.xe_gap), max(param.xe_gap)], [0, 0], color='gray', linewidth=5, label='Transducer plane')
                 ax1.plot(all_pts[:, 0], all_pts[:, 1], 'gx', label='all points', alpha=.4)
                 ax1.plot(rej_pts[:, 0], rej_pts[:, 1], '.', color='orange', label='rejected points', alpha=.2)
                 #[ax1.text(rej_pts[i, 0], rej_pts[i, 1]+np.random.rand(1)*param.wavelength, s=str(rej_pts[i, 2]), color='orange') for i in range(len(rej_pts))]
-                ax1.plot(np.array(reduced_pts)[:, 0], np.array(reduced_pts)[:, 1], 'c+', label='selected')
+                if len(reduced_pts)>0: ax1.plot(np.array(reduced_pts)[:, 0], np.array(reduced_pts)[:, 1], 'c+', label='selected')
                 ax1.set_ylim([0, max(param.z)])
                 ax1.set_xlim([min(param.x), max(param.x)])
                 #ax1.set_xlabel('Horizontal domain $x$ [m]')
