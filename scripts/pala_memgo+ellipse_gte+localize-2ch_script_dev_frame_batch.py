@@ -146,9 +146,9 @@ for dat_num in range(1, cfg.dat_num):
     pos_fname = rel_path / 'PALA_InSilicoFlow_v3_pos_Tracks_dt.mat'
     pos_mat = scipy.io.loadmat(pos_fname)
 
-    if np.isreal(cfg.noise_db) and cfg.noise_db < 0:
-        assert cfg.noise_db in [-30, -40, -50], 'Noise level not available for PALA'
-        res_fname = rel_path / 'Results' / 'matlab_w_noise' / ('PALA_InSilicoFlow_raw_db-'+str(abs(cfg.noise_db))+'_'+str(dat_num)+'.mat')
+    if np.isreal(cfg.clutter_db) and cfg.clutter_db < 0:
+        assert cfg.clutter_db in [-30, -40, -50], 'Noise level not available for PALA'
+        res_fname = rel_path / 'Results' / 'matlab_w_noise' / ('PALA_InSilicoFlow_raw_db-'+str(abs(cfg.clutter_db))+'_'+str(dat_num)+'.mat')
     else:
         res_fname = rel_path / 'Results' / 'matlab_wo_noise' / ('PALA_InSilicoFlow_raw_'+str(dat_num)+'.mat')
     track_key = 'Track_raw'
@@ -165,7 +165,7 @@ for dat_num in range(1, cfg.dat_num):
     pala_local_results = {m: arr for arr, m in zip(res_mat[track_key][0], pala_local_methods)}
     pala_method = pala_local_methods[-1]
     ref_pts = pala_local_results[pala_method]
-    if np.isreal(cfg.noise_db) and cfg.noise_db < 0: ref_pts = np.vstack(ref_pts[:,0])
+    if np.isreal(cfg.clutter_db) and cfg.clutter_db < 0: ref_pts = np.vstack(ref_pts[:,0])
     del res_mat, pala_local_results
 
     mat2dict = lambda mat: dict([(k[0], v.squeeze()) for v, k in zip(mat[0][0], list(mat.dtype.descr))])
@@ -238,9 +238,9 @@ for dat_num in range(1, cfg.dat_num):
         virtual_upsample = RFdata.shape[1]//cfg.ch_gap
         data_batch = iq2rf(np.hstack(rf_iq_frames[:, cfg.wave_idx, :, ::cfg.ch_gap]), mod_freq=param.f0, upsample_factor=virtual_upsample)
 
-        if np.isreal(cfg.noise_db) and cfg.noise_db < 0:
+        if np.isreal(cfg.clutter_db) and cfg.clutter_db < 0:
             # add noise according to PALA study
-            data_batch = add_pala_noise(data_batch, clutter_db=cfg.noise_db, sigma=1.5)
+            data_batch = add_pala_noise(data_batch, clutter_db=cfg.clutter_db, sigma=1.5)
             # bandpass filter to counteract impact of noise
             start = time.perf_counter()
             data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*virtual_upsample, sw=0.6)#cfg.enlarge_factor)
@@ -302,7 +302,7 @@ for dat_num in range(1, cfg.dat_num):
 
             # PALA
             pts_frame_idcs = ref_pts[:, -1]-1 == frame_idx
-            if np.isreal(cfg.noise_db) and cfg.noise_db < 0:
+            if np.isreal(cfg.clutter_db) and cfg.clutter_db < 0:
                 ref_zpos = ref_pts[pts_frame_idcs][:, 0]
                 ref_xpos = ref_pts[pts_frame_idcs][:, 1]
             else:
