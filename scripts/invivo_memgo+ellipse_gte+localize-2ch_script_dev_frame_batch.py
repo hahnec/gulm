@@ -621,43 +621,9 @@ for dat_num in range(1, cfg.dat_num):
                 plt.savefig('./cluster_plot.pdf', format='pdf', backend='pdf', dpi=300, transparent=True)
                 plt.show()
 
-# total errors over all frames
-pace_rmses = np.array(acc_pace_errs)[:, 0]
-pala_rmses = np.array(acc_pala_errs)[:, 0]
-pulm_rmse_mean = np.nanmean(pace_rmses)
-pala_rmse_mean = np.nanmean(pala_rmses)
-pulm_rmse_std = np.std(pace_rmses[~np.isnan(pace_rmses)])
-pala_rmse_std = np.std(pala_rmses[~np.isnan(pala_rmses)])
-pulm_jaccard_total = np.nansum(np.array(acc_pace_errs)[:, 2])/np.nansum(np.array(acc_pace_errs)[:, 2]+np.array(acc_pace_errs)[:, 3]+np.array(acc_pace_errs)[:, 4]) * 100
-pala_jaccard_total = np.nansum(np.array(acc_pala_errs)[:, 2])/np.nansum(np.array(acc_pala_errs)[:, 2]+np.array(acc_pala_errs)[:, 3]+np.array(acc_pala_errs)[:, 4]) * 100
-print('Total mean confidence: %s' % round(np.nanmean(np.array(acc_pace_errs)[:, -1]), 4))
-print('Accumulated PULM RMSE: %s, Jacc.: %s' % (pulm_rmse_mean, pulm_jaccard_total))
-print('Accumulated PALA RMSE: %s, Jacc.: %s' % (pala_rmse_mean, pala_jaccard_total))
 if cfg.save_opt:
-    np.savetxt(str(output_path / 'logged_errors.csv'), np.array(acc_pace_errs), delimiter=',')
-
-    frames = load_ulm_data(data_path=str(output_path), expr='gtru')
-    gtru_ulm_img, gtru_vel_map = render_ulm(frames, tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True)
-    frames = load_ulm_data(data_path=str(output_path), expr='pala')
-    pala_ulm_img, pala_vel_map = render_ulm(frames, tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True)
     frames = load_ulm_data(data_path=str(output_path), expr='pace')
     pace_ulm_img, pace_vel_map = render_ulm(frames, tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True)
     if cfg.logging:
-        wandb.log({"gtru_ulm_img": wandb.Image(gtru_ulm_img)})
-        wandb.log({"gtru_vel_img": wandb.Image(gtru_vel_map)})
-        wandb.log({"pala_ulm_img": wandb.Image(pala_ulm_img)})
-        wandb.log({"pala_vel_map": wandb.Image(pala_vel_map)})
         wandb.log({"pace_ulm_img": wandb.Image(pace_ulm_img)})
         wandb.log({"pace_vel_map": wandb.Image(pace_vel_map)})
-if cfg.logging:
-    wandb.summary['PULM/TotalRMSE'] = pulm_rmse_mean
-    wandb.summary['PALA/TotalRMSE'] = pala_rmse_mean
-    wandb.summary['PULM/TotalRMSEstd'] = pulm_rmse_std
-    wandb.summary['PALA/TotalRMSEstd'] = pala_rmse_std
-    wandb.summary['PULM/TotalJaccard'] = pulm_jaccard_total
-    wandb.summary['PALA/TotalJaccard'] = pala_jaccard_total
-    wandb.summary['PULM/TotalConfidence'] = np.nanmean(np.array(acc_pace_errs)[:, -1])
-    wandb.save(str(output_path / 'logged_errors.csv'))
-    if cfg.save_opt:
-        wandb.summary['PALA/SSIM'] = structural_similarity(gtru_ulm_img, pala_ulm_img, channel_axis=2)
-        wandb.summary['PULM/SSIM'] = structural_similarity(gtru_ulm_img, pace_ulm_img, channel_axis=2)
