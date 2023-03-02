@@ -197,7 +197,7 @@ for dat_num in range(1, cfg.dat_num):
     extent = [min(param.x), max(param.x), min(param.z), max(param.z)]
     aspect = max(param.z)/(max(param.x)-min(param.x))#1
 
-    cfg.frame_num = rf_mat['RFdata'].shape[-1] if cfg.frame_num is None else cfg.frame_num
+    cfg.frame_num = 800 if cfg.frame_num is None else cfg.frame_num
     cfg['fs'] = float(Receive['demodFrequency']*1e6)
 
     # initialize clustering method
