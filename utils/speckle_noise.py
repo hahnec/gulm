@@ -6,7 +6,9 @@ def add_pala_noise(iq, clutter_db=-60, power=-2, impedance=.2, amp_culler_db=10,
 
     awgn = awgn_noise(iq.size, power, impedance).reshape(*iq.shape)
     swgn = awgn * iq.max() * 10**((amp_culler_db+clutter_db)/20)
-    iq_filt = gaussian_filter(swgn + iq.max() * 10**(clutter_db/20), sigma)
+    swgn[swgn>0] += iq.max() * 10**(clutter_db/20)
+    swgn[swgn<0] -= iq.max() * 10**(clutter_db/20)
+    iq_filt = gaussian_filter(swgn, sigma)
     iq_speckle = iq + iq_filt
 
     return iq_speckle
