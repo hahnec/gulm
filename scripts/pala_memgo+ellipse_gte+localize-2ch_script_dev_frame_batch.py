@@ -15,7 +15,7 @@ from sklearn.cluster import MeanShift, estimate_bandwidth
 from pathlib import Path
 from omegaconf import OmegaConf
 import wandb
-from skimage.metrics import structural_similarity
+from skimage.metrics import structural_similarity, peak_signal_noise_ratio
 from scipy.interpolate import interp1d
 
 from multimodal_emg.batch_staged_memgo import batch_staged_memgo
@@ -85,7 +85,7 @@ def get_overall_phase_shift(data_arr, toas, phi_shifts, ch_idx, cch_sample, cch_
 script_path = Path(__file__).parent.resolve()
 
 # load config
-cfg = OmegaConf.load(str(script_path.parent / 'config.yaml'))
+cfg = OmegaConf.load(str(script_path.parent / 'config_insilico.yaml'))
 
 # override config with CLI
 cfg = OmegaConf.merge(cfg, OmegaConf.from_cli())
@@ -787,4 +787,6 @@ if cfg.logging:
     wandb.save(str(output_path / 'logged_errors.csv'))
     if cfg.save_opt:
         wandb.summary['PALA/SSIM'] = structural_similarity(gtru_ulm_img, pala_ulm_img, channel_axis=2)
+        wandb.summary['PALA/PSNR'] = peak_signal_noise_ratio(gtru_ulm_img, pala_ulm_img)
         wandb.summary['PULM/SSIM'] = structural_similarity(gtru_ulm_img, pace_ulm_img, channel_axis=2)
+        wandb.summary['PULM/PSNR'] = peak_signal_noise_ratio(gtru_ulm_img, pace_ulm_img)
