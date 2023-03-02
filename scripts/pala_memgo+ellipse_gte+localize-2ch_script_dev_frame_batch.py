@@ -162,6 +162,7 @@ for dat_num in range(1, cfg.dat_num):
     pala_local_results = {m: arr for arr, m in zip(res_mat[track_key][0], pala_local_methods)}
     pala_method = pala_local_methods[-1]
     ref_pts = pala_local_results[pala_method]
+    if np.isreal(cfg.noise_db) and cfg.noise_db < 0: ref_pts = np.vstack(ref_pts[:,0])
     del res_mat
 
     mat2dict = lambda mat: dict([(k[0], v.squeeze()) for v, k in zip(mat[0][0], list(mat.dtype.descr))])
@@ -297,9 +298,13 @@ for dat_num in range(1, cfg.dat_num):
 
             # PALA
             pts_frame_idcs = ref_pts[:, -1]-1 == frame_idx
-            ref_imax = ref_pts[pts_frame_idcs][:, 0]    # intensity max
-            ref_zpos = ref_pts[pts_frame_idcs][:, 1]
-            ref_xpos = ref_pts[pts_frame_idcs][:, 2]
+            if np.isreal(cfg.noise_db) and cfg.noise_db < 0:
+                ref_zpos = ref_pts[pts_frame_idcs][:, 0]
+                ref_xpos = ref_pts[pts_frame_idcs][:, 1]
+            else:
+                ref_imax = ref_pts[pts_frame_idcs][:, 0]    # intensity max
+                ref_zpos = ref_pts[pts_frame_idcs][:, 1]
+                ref_xpos = ref_pts[pts_frame_idcs][:, 2]
 
             # beamforming
             if cfg.plt_comp_opt or cfg.plt_cluster_opt:
