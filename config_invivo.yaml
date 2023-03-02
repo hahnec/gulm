@@ -24,12 +24,12 @@ svd_opt: False
 
 logging: False
 plt_comp_opt: False
-plt_cluster_opt: True
+plt_cluster_opt: False
 plt_frame_opt: False
-save_opt: False
+save_opt: True
 
 data_path: Rat18_2D_InVivoBrain/
-ubx_dir: /storage/homefs/ch21z139/PALA_dataset/${data_path}
+ubx_dir: /storage/workspaces/artorg_aimi/ws_00000/chris/${data_path}
 loc_dir: /home/chris/LocalDatasets/03_PALA/${data_path}
 map_dir: /home/chris/UbelixWorkspaces/artorg_aimi/ws_00000/chris/
-data_dir: ${loc_dir}
+data_dir: ${ubx_dir}

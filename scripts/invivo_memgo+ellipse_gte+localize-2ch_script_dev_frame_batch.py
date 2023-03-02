@@ -125,7 +125,7 @@ if cfg.plt_comp_opt or cfg.plt_frame_opt:
         "font.family": "Helvetica"
     })
 
-rel_path = Path(cfg.map_dir) / cfg.data_path
+rel_path = Path(cfg.data_dir)
 
 # initialize intersector
 ell_intersector = EllipseIntersection()
@@ -135,7 +135,7 @@ time2sample = lambda toa, phi_shift: np.round(((toa-nonplanar_tdx - phi_shift/(2
 torch.cuda.empty_cache()
 frame_batch_size = cfg.frame_batch_size
 
-results_path = Path(cfg.loc_dir).parent / 'PALA_data_InVivoRatBrain' / 'Results' / 'PALA_InVivoRatBrain_MatOut_multi.mat'
+results_path = Path(cfg.data_dir) / 'Results' / 'PALA_InVivoRatBrain_MatOut_multi.mat'
 out_mat = scipy.io.loadmat(str(results_path))
 
 blind_zone_idx = 1500//cfg.enlarge_factor
