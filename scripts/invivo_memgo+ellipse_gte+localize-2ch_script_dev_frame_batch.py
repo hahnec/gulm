@@ -621,9 +621,8 @@ for dat_num in range(1, cfg.dat_num):
                 plt.savefig('./cluster_plot.pdf', format='pdf', backend='pdf', dpi=300, transparent=True)
                 plt.show()
 
-if cfg.save_opt:
-    frames = load_ulm_data(data_path=str(output_path), expr='pace')
-    pace_ulm_img, pace_vel_map = render_ulm(frames, tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True)
-    if cfg.logging:
-        wandb.log({"pace_ulm_img": wandb.Image(pace_ulm_img)})
-        wandb.log({"pace_vel_map": wandb.Image(pace_vel_map)})
+    if cfg.save_opt:
+        frames = load_ulm_data(data_path=str(output_path), expr='pace')
+        pace_ulm_img, _ = render_ulm(frames, tracking=cfg.tracking, plot_opt=cfg.plt_frame_opt, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True)
+        if cfg.logging:
+            wandb.log({"pace_ulm_img": wandb.Image(pace_ulm_img)})
