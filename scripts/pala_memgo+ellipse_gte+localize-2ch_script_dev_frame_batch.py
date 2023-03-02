@@ -125,6 +125,9 @@ rel_path = Path(cfg.data_dir)
 # initialize intersector
 ell_intersector = EllipseIntersection()
 
+# component index for plot
+k_idx = 10
+
 time2sample = lambda toa, phi_shift: np.round(((toa-nonplanar_tdx - phi_shift/(2*np.pi*param.fs) * param.c)/param.c - param.t0) * param.fs * cfg.enlarge_factor).astype(int)
 
 torch.cuda.empty_cache()
@@ -236,10 +239,10 @@ for dat_num in range(1, cfg.dat_num):
 
         if np.isreal(cfg.noise_db) and cfg.noise_db < 0:
             # add noise according to PALA study
-            data_batch = add_pala_noise(data_batch, clutter_db=cfg.noise_db)
+            data_batch = add_pala_noise(data_batch, clutter_db=cfg.noise_db, sigma=1.5*2)   # double sigma due to upsampling
             # bandpass filter to counteract impact of noise
             start = time.perf_counter()
-            data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor)
+            data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor, sw=0.6)
             print('BP-filter time: %s' % str(time.perf_counter()-start))
 
         # prepare variables for optimization
@@ -539,7 +542,7 @@ for dat_num in range(1, cfg.dat_num):
                             ax.set_xlabel('Radial distance $r$ [samples]')
                             #ax.set_ylabel('Amplitude $A_{%s}(r)$ [a.u.]' % el_idx)
                             ax.set_ylabel('Amplitude [a.u.]')
-                            ax.set_xlim([mu_cch-600, mu_cch+400])
+                            ax.set_xlim([mu_cch-600, mu_cch+400]) if k == k_idx else None
                             ax.grid(True)
 
                             # plot rx trajectory
@@ -597,7 +600,7 @@ for dat_num in range(1, cfg.dat_num):
                         [axins1.spines[s].set_color('orange') for s in sides_list]
                         [axins1.spines[s].set_linewidth(2) for s in sides_list]
 
-                        if k == 10+0:
+                        if k == k_idx:
                             fig.patch.set_alpha(0)  # transparency
                             plt.savefig('./components_plot.pdf', format='pdf', backend='pdf', dpi=300, transparent=False)
                             print('saved')
