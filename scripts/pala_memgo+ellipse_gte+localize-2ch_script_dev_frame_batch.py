@@ -148,7 +148,7 @@ for dat_num in range(1, cfg.dat_num):
     pos_mat = scipy.io.loadmat(pos_fname)
 
     if np.isreal(cfg.clutter_db) and cfg.clutter_db < 0:
-        assert cfg.clutter_db in [-30, -40, -50], 'Noise level not available for PALA'
+        assert cfg.clutter_db in [-20, -30, -40, -50], 'Noise level not available for PALA'
         res_fname = rel_path / 'Results' / 'matlab_w_noise' / ('PALA_InSilicoFlow_raw_db-'+str(abs(cfg.clutter_db))+'_'+str(dat_num)+'.mat')
     else:
         res_fname = rel_path / 'Results' / 'matlab_wo_noise' / ('PALA_InSilicoFlow_raw_'+str(dat_num)+'.mat')
