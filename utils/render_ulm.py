@@ -30,11 +30,11 @@ def render_ulm(frames, tracking=None, expr='', plot_opt=False, cmap_opt=False, u
         frames = [f / wavelength for f in frames]
         tracks_out, tracks_interp = tracking2d(frames, max_linking_distance=max_linking_distance, max_gap_closing=max_gap_closing, min_len=min_len, scale=1/framerate, mode='interp')
         shifted_coords = [np.hstack([p[:, :2] - origin[:2], p[:, 2:]]) for p in tracks_out]
-        ulm_img, vel_map = tracks2img(shifted_coords, img_size=np.array([84, 134]), scale=10, mode='tracks')#velnorm')
+        ulm_img, vel_map = tracks2img(shifted_coords, img_size=np.array([84, 134]), scale=5, mode='tracks')#velnorm')
     else:
         # render based on localizations
         all_pts = np.vstack(frames) / wavelength - origin[:2]
-        ulm_img, vel_map = tracks2img(all_pts, img_size=np.array([84, 134]), scale=10, mode='all_in')
+        ulm_img, vel_map = tracks2img(all_pts, img_size=np.array([84, 134]), scale=5, mode='all_in')
 
     # gamma correction
     gamma = gamma if isinstance(gamma, (float, int)) else 1
