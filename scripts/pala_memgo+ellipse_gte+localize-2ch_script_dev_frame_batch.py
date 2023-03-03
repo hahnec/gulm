@@ -758,6 +758,10 @@ pulm_rmse_std = np.std(pace_rmses[~np.isnan(pace_rmses)])
 pala_rmse_std = np.std(pala_rmses[~np.isnan(pala_rmses)])
 pulm_jaccard_total = np.nansum(np.array(acc_pace_errs)[:, 2])/np.nansum(np.array(acc_pace_errs)[:, 2]+np.array(acc_pace_errs)[:, 3]+np.array(acc_pace_errs)[:, 4]) * 100
 pala_jaccard_total = np.nansum(np.array(acc_pala_errs)[:, 2])/np.nansum(np.array(acc_pala_errs)[:, 2]+np.array(acc_pala_errs)[:, 3]+np.array(acc_pala_errs)[:, 4]) * 100
+pulm_precision_total = np.nansum(np.array(acc_pace_errs)[:, 2])/(np.nansum(np.array(acc_pace_errs)[:, 3])+np.nansum(np.array(acc_pace_errs)[:, 2])) * 100
+pala_precision_total = np.nansum(np.array(acc_pala_errs)[:, 2])/(np.nansum(np.array(acc_pala_errs)[:, 3])+np.nansum(np.array(acc_pala_errs)[:, 2])) * 100
+pulm_recall_total = np.nansum(np.array(acc_pace_errs)[:, 2])/(np.nansum(np.array(acc_pace_errs)[:, 4])+np.nansum(np.array(acc_pace_errs)[:, 2])) * 100
+pala_recall_total = np.nansum(np.array(acc_pala_errs)[:, 2])/(np.nansum(np.array(acc_pala_errs)[:, 4])+np.nansum(np.array(acc_pala_errs)[:, 2])) * 100
 print('Total mean confidence: %s' % round(np.nanmean(np.array(acc_pace_errs)[:, -1]), 4))
 print('Accumulated PULM RMSE: %s, Jacc.: %s' % (pulm_rmse_mean, pulm_jaccard_total))
 print('Accumulated PALA RMSE: %s, Jacc.: %s' % (pala_rmse_mean, pala_jaccard_total))
@@ -784,6 +788,10 @@ if cfg.logging:
     wandb.summary['PALA/TotalRMSEstd'] = pala_rmse_std
     wandb.summary['PULM/TotalJaccard'] = pulm_jaccard_total
     wandb.summary['PALA/TotalJaccard'] = pala_jaccard_total
+    wandb.summary['PULM/TotalPrecision'] = pulm_precision_total
+    wandb.summary['PALA/TotalPrecision'] = pala_precision_total
+    wandb.summary['PULM/TotalRecall'] = pulm_recall_total
+    wandb.summary['PALA/TotalRecall'] = pala_recall_total
     wandb.summary['PULM/TotalConfidence'] = np.nanmean(np.array(acc_pace_errs)[:, -1])
     wandb.save(str(output_path / 'logged_errors.csv'))
     if cfg.save_opt:
