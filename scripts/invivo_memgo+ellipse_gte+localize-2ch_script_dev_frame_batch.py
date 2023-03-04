@@ -96,7 +96,6 @@ cfg = OmegaConf.load(str(script_path.parent / 'config_invivo.yaml'))
 cfg = OmegaConf.merge(cfg, OmegaConf.from_cli())
 
 assert (1000/cfg.frame_batch_size)%1 == 0, 'frame_batch_size must be multiple of 1000'
-assert max(cfg.tx_gaps) < cfg.ch_gap, 'maximum tx_gap too large'
 
 if cfg.logging: 
     wandb.init(project="pulm", name=None, config=cfg, group=None)
@@ -124,17 +123,31 @@ frame_batch_size = cfg.frame_batch_size
 results_path = Path(cfg.data_dir) / 'Results' / 'PALA_InVivoRatBrain_MatOut_multi.mat'
 out_mat = scipy.io.loadmat(str(results_path))
 
-blind_zone_idx = 3*(1500//cfg.enlarge_factor)//2
+blind_zone_idx = (1500//cfg.enlarge_factor)#3*(1500//cfg.enlarge_factor)//2
 
 acc_pace_errs = []
 acc_pala_errs = []
-for dat_num in range(1, cfg.dat_num):
+for dat_num in range(1, cfg.dat_num+1):
 
     seq_fname = rel_path / 'Rat18_2D_PALA_0323_163558_sequence.mat'
     seq_mat = scipy.io.loadmat(seq_fname)
 
     rf_fname = rel_path / 'RFdata' / ('Rat18_2D_PALA_0323_163558RF'+str(dat_num).zfill(3)+'.mat')
     rf_mat = scipy.io.loadmat(rf_fname)
+
+    iq_fname = rel_path / 'IQ' / ('PALA_InVivoRatBrain_'+str(dat_num).zfill(3)+'.mat')
+    iq_mat = scipy.io.loadmat(iq_fname)['IQ']
+    iq_mat = svd_filter(iq_mat, cutoff=4)
+    but_b,but_a = signal.butter(2, np.array([50, 250])/(1000/2), btype='bandpass')
+    iq_mat = signal.filtfilt(but_b, but_a, iq_mat, axis=2)
+    iq_mat[iq_mat == 0] = np.spacing(1)
+    iq_mat = 20*np.log10(abs(iq_mat))
+    iq_mat = iq_mat-iq_mat.max()
+
+    rs_fname = rel_path / 'Tracks' / ('PALA_InVivoRatBrain_Tracks'+str(dat_num).zfill(3)+'.mat')
+    rs_mat = scipy.io.loadmat(rs_fname)
+    rs_pts = np.vstack(rs_mat['Track_raw'][0, 0][:, 0])
+    del rs_mat
 
     mat2dict = lambda mat: dict([(k[0], v.squeeze()) for v, k in zip(mat[0][0], list(mat.dtype.descr))])
 
@@ -180,7 +193,7 @@ for dat_num in range(1, cfg.dat_num):
     [mesh_x, mesh_z] = np.meshgrid(param.x, param.z)
 
     extent = [min(param.x), max(param.x), min(param.z), max(param.z)]
-    aspect = max(param.z)/(max(param.x)-min(param.x))#1
+    aspect = max(param.z)/(max(param.x)-min(param.x))
 
     cfg.frame_num = 800 if cfg.frame_num is None else cfg.frame_num
     cfg['fs'] = float(Receive['demodFrequency']*1e6)
@@ -204,7 +217,11 @@ for dat_num in range(1, cfg.dat_num):
     #cfg.echo_threshold = float(20*np.log10(cfg.echo_threshold))
 
     # SVD filter only central plane wave
-    if cfg.svd_opt: batch_rf_iq_frames[1, ...] = svd_filter(batch_rf_iq_frames[1, ...])
+    if cfg.temp_filter_opt: 
+        but_b,but_a = signal.butter(2, np.array([50, 250])/(1000/2), btype='bandpass')
+        for wave_idx in range(len(param.angles_list)):
+            batch_rf_iq_frames[wave_idx, ...] = svd_filter(batch_rf_iq_frames[wave_idx, ...], cutoff=4)
+            batch_rf_iq_frames[wave_idx, ...] = signal.filtfilt(but_b, but_a, batch_rf_iq_frames[wave_idx, ...], axis=2)
 
     frame_start = 0
     for frame_batch_ptr in range(frame_start, frame_start+cfg.frame_num, frame_batch_size):
@@ -217,8 +234,8 @@ for dat_num in range(1, cfg.dat_num):
         rf_iq_frames[..., :blind_zone_idx, :] = 0
 
         # crop left and right side of image (transducer array)
-        rf_iq_frames_gap = rf_iq_frames#[..., 48:-48]
-        param.xe_gap = param.xe#[48:-48]
+        rf_iq_frames_gap = rf_iq_frames#[..., 32:-32]
+        param.xe_gap = param.xe#[32:-32]
 
         rf_iq_frames_gap = rf_iq_frames_gap[:, cfg.wave_idx, :, ::cfg.ch_gap]
 
@@ -229,7 +246,7 @@ for dat_num in range(1, cfg.dat_num):
         
         # BP-filter
         start = time.perf_counter()
-        data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor, sw=0.4)
+        data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor, sw=0.5)
         print('BP-filter time: %s' % str(time.perf_counter()-start))
 
         # prepare variables for optimization
@@ -254,6 +271,8 @@ for dat_num in range(1, cfg.dat_num):
         print('MEMGO frame time: %s' % str((time.perf_counter()-start)/frame_batch_size))
         conf_frame = float(torch.nanmean(conf_batch[conf_batch>0]*1e5))
         print('MEMGO confidence: %s' % str(conf_frame))
+
+        assert echo_batch.numel() > 0, 'No echoes found: consider lowering the threshold.'
         
         # reshape to dedicated batch dimension
         memgo_batch = memgo_batch.reshape([frame_batch_size, -1, memgo_batch.shape[1], memgo_batch.shape[2]])
@@ -273,6 +292,9 @@ for dat_num in range(1, cfg.dat_num):
 
             frame_idx = frame_batch_ptr + frame_batch_idx
 
+            # get raw points from PALA radial symmetry (for validation purposes)
+            rs_pts_frame = rs_pts[rs_pts[:, 2] == frame_idx+1]
+
             print('Dataset: %s, Frame: %s' % (str(dat_num), str(frame_idx)))
 
             memgo_feats = memgo_batch[frame_batch_idx, ...]
@@ -287,7 +309,7 @@ for dat_num in range(1, cfg.dat_num):
                 bmode = pala_beamformer(rf_iq_frames[frame_batch_idx, ...], param, mesh_x, mesh_z)
                 print('Beamforming time: %s' % str(time.perf_counter()-start))
                 bmode -= bmode.max()
-                bmode_limits = [-60, 0] # [dB] scale
+                bmode_limits = [-50, 0] # [dB] scale
 
             # prevent echoes from being in negative time domain
             memgo_feats[memgo_feats[..., 1]<0, 1] = 0
@@ -581,21 +603,30 @@ for dat_num in range(1, cfg.dat_num):
             if cfg.plt_cluster_opt:
                 plt.rcParams.update({'font.size': 18})
                 fig = plt.figure(figsize=(30/3*1.45, 15/3))
-                gs = gridspec.GridSpec(1, 1)
+                gs = gridspec.GridSpec(1, 2)
                 ax1 = plt.subplot(gs[0, 0])
+                ax2 = plt.subplot(gs[0, 1])
 
-                ax1.imshow(bmode, vmin=bmode_limits[0], vmax=bmode_limits[1], extent=extent, aspect=aspect**-1, origin='lower', cmap='gray')
+                ax1.imshow(bmode, vmin=bmode_limits[0], vmax=bmode_limits[1], extent=extent, aspect=aspect**-1, interpolation='none', origin='lower', cmap='gray')
                 ax1.set_facecolor('#000000')
                 ax1.plot([min(param.xe_gap), max(param.xe_gap)], [0, 0], color='gray', linewidth=5, label='Transducer plane')
+                #ax1.plot((rs_pts_frame[:, 1]-59)*param.wavelength, rs_pts_frame[:, 0]*param.wavelength, 'b+', label='RS', alpha=1)
+                ax1.plot((rs_pts_frame[:, 1]-63)*param.wavelength, (rs_pts_frame[:, 0]+25)*param.wavelength, 'b+', label='RS', alpha=1)
                 ax1.plot(all_pts[:, 0], all_pts[:, 1], 'gx', label='all points', alpha=.4)
                 ax1.plot(rej_pts[:, 0], rej_pts[:, 1], '.', color='orange', label='rejected points', alpha=.2)
                 #[ax1.text(rej_pts[i, 0], rej_pts[i, 1]+np.random.rand(1)*param.wavelength, s=str(rej_pts[i, 2]), color='orange') for i in range(len(rej_pts))]
                 if len(reduced_pts)>0: ax1.plot(np.array(reduced_pts)[:, 0], np.array(reduced_pts)[:, 1], 'c+', label='selected')
                 ax1.set_ylim([0, max(param.z)])
-                ax1.set_xlim([min(param.x), max(param.x)])
+                denom = 1.2
+                ax1.set_xlim([min(param.x)/denom, max(param.x)/denom])
                 #ax1.set_xlabel('Horizontal domain $x$ [m]')
                 #ax1.set_ylabel('Vertical distance $z$ [m]')
                 ax1.legend()
+
+                ax2.plot(rs_pts_frame[:, 1], rs_pts_frame[:, 0], 'b+', label='RS', alpha=1)
+                ax2.imshow(iq_mat[..., frame_idx], vmin=bmode_limits[0]-20, vmax=bmode_limits[1]-20, interpolation='none', origin='lower', cmap='gray')
+                #if len(reduced_pts)>0: ax2.plot(np.array(reduced_pts)[:, 0]/param.wavelength+59, np.array(reduced_pts)[:, 1]/param.wavelength, 'c+', label='selected')
+                if len(reduced_pts)>0: ax2.plot(np.array(reduced_pts)[:, 0]/param.wavelength+63, np.array(reduced_pts)[:, 1]/param.wavelength-25, 'c+', label='selected')
 
                 #for i, l in enumerate(labels_unique):
                 #    if sum(l==labels) > cfg.cluster_number: 
