@@ -91,7 +91,6 @@ cfg = OmegaConf.load(str(script_path.parent / 'config_insilico.yaml'))
 cfg = OmegaConf.merge(cfg, OmegaConf.from_cli())
 
 assert (1000/cfg.frame_batch_size)%1 == 0, 'frame_batch_size must be multiple of 1000'
-assert max(cfg.tx_gaps) < cfg.ch_gap, 'maximum tx_gap too large'
 
 if cfg.logging: 
     wandb.init(project="pulm", name=None, config=cfg, group=None)
@@ -112,7 +111,7 @@ if cfg.logging:
     wandb.define_metric('PALA/FalsePositive', step_metric='frame')
     wandb.define_metric('PALA/FalseNegative', step_metric='frame')
 
-output_path = script_path / ('other_frames_'+str(cfg.clutter_db))
+output_path = script_path / ('other_frames_4gap_0.0825_'+str(cfg.clutter_db))
 if cfg.save_opt and not output_path.exists(): output_path.mkdir()
 
 if cfg.plt_comp_opt or cfg.plt_cluster_opt:
