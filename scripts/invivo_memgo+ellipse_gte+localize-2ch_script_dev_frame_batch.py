@@ -220,9 +220,13 @@ for dat_num in range(1, cfg.dat_num+1):
     # SVD filter only central plane wave
     if cfg.temp_filter_opt: 
         but_b,but_a = signal.butter(2, np.array([50, 250])/(1000/2), btype='bandpass')
-        for wave_idx in range(len(param.angles_list)):
-            batch_rf_iq_frames[wave_idx, ...] = svd_filter(batch_rf_iq_frames[wave_idx, ...], cutoff=4)
-            batch_rf_iq_frames[wave_idx, ...] = signal.filtfilt(but_b, but_a, batch_rf_iq_frames[wave_idx, ...], axis=2)
+        if cfg.plt_comp_opt or cfg.plt_cluster_opt:
+            for wave_idx in range(len(param.angles_list)):
+                batch_rf_iq_frames[wave_idx, ...] = svd_filter(batch_rf_iq_frames[wave_idx, ...], cutoff=4)
+                batch_rf_iq_frames[wave_idx, ...] = signal.filtfilt(but_b, but_a, batch_rf_iq_frames[wave_idx, ...], axis=2)
+        else:
+            batch_rf_iq_frames[cfg.wave_idx, ...] = svd_filter(batch_rf_iq_frames[cfg.wave_idx, ...], cutoff=4)
+            batch_rf_iq_frames[cfg.wave_idx, ...] = signal.filtfilt(but_b, but_a, batch_rf_iq_frames[cfg.wave_idx, ...], axis=2)
 
     frame_start = 0
     for frame_batch_ptr in range(frame_start, frame_start+cfg.frame_num, frame_batch_size):
