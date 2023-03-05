@@ -101,7 +101,8 @@ if cfg.logging:
     wandb.init(project="pulm", name=None, config=cfg, group=None)
     wandb.define_metric('PULM/MeanFrameConfidence', step_metric='frame')
 
-output_path = Path(cfg.data_dir) / 'Results' / 'invivo_frames_wo_hungarian'
+run_name = str(wandb.run.name) if cfg.logging else 'wo_logging'
+output_path = Path(cfg.data_dir) / 'Results' / ('invivo_frames_'+run_name)
 if cfg.save_opt and not output_path.exists(): output_path.mkdir()
 
 if cfg.plt_comp_opt or cfg.plt_frame_opt:
