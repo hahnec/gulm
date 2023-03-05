@@ -586,9 +586,12 @@ for dat_num in range(1, cfg.dat_num+1):
             all_pts = np.vstack(all_pts_list)
             rej_pts = np.vstack(rej_pts_list)
 
-            ms.fit(all_pts[:, :2])
-            labels = ms.labels_
-            cluster_centers = ms.cluster_centers_
+            if all_pts.size > 0:
+                ms.fit(all_pts[:, :2])
+                labels = ms.labels_
+                cluster_centers = ms.cluster_centers_
+            else:
+                continue
 
             labels_unique = np.unique(labels)
             n_clusters_ = len(labels_unique)
