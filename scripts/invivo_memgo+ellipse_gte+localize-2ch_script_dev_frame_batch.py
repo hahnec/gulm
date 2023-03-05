@@ -101,7 +101,7 @@ if cfg.logging:
     wandb.init(project="pulm", name=None, config=cfg, group=None)
     wandb.define_metric('PULM/MeanFrameConfidence', step_metric='frame')
 
-output_path = script_path / 'invivo_frames'
+output_path = Path(cfg.data_dir) / 'Results' / 'invivo_frames_wo_hungarian'
 if cfg.save_opt and not output_path.exists(): output_path.mkdir()
 
 if cfg.plt_comp_opt or cfg.plt_frame_opt:
@@ -123,7 +123,7 @@ frame_batch_size = cfg.frame_batch_size
 results_path = Path(cfg.data_dir) / 'Results' / 'PALA_InVivoRatBrain_MatOut_multi.mat'
 out_mat = scipy.io.loadmat(str(results_path))
 
-blind_zone_idx = (1500//cfg.enlarge_factor)#3*(1500//cfg.enlarge_factor)//2
+blind_zone_idx = 0 #(1500//cfg.enlarge_factor)#3*(1500//cfg.enlarge_factor)//2
 
 acc_pace_errs = []
 acc_pala_errs = []
@@ -273,6 +273,12 @@ for dat_num in range(1, cfg.dat_num+1):
         print('MEMGO confidence: %s' % str(conf_frame))
 
         assert echo_batch.numel() > 0, 'No echoes found: consider lowering the threshold.'
+
+        if cfg.logging:
+            wandb.log({
+                    'PULM/MeanFrameConfidence': conf_frame,
+                    'frame': int(frame_batch_ptr+frame_batch_size),
+                })
         
         # reshape to dedicated batch dimension
         memgo_batch = memgo_batch.reshape([frame_batch_size, -1, memgo_batch.shape[1], memgo_batch.shape[2]])
