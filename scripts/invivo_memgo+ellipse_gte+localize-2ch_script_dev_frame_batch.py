@@ -11,6 +11,7 @@ import numpy as np
 import scipy.io
 import torch
 import wandb
+import warnings
 from matplotlib.patches import Ellipse
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset, zoomed_inset_axes
@@ -277,7 +278,9 @@ for dat_num in range(1, cfg.dat_num+1):
         conf_frame = float(torch.nanmean(conf_batch[conf_batch>0]*1e5))
         print('MEMGO confidence: %s' % str(conf_frame))
 
-        assert echo_batch.numel() > 0, 'No echoes found: consider lowering the threshold.'
+        if echo_batch.numel() == 0:
+            warnings.warn('No echoes found: consider lowering the threshold.')
+            continue
 
         if cfg.logging:
             wandb.log({
