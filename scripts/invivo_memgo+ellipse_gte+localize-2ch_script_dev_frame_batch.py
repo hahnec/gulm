@@ -587,6 +587,7 @@ for dat_num in range(1, cfg.dat_num+1):
                         plt.show()
             
             if len(all_pts_list) == 0:
+                np.savetxt((output_path / ('pace_frame_%s_%s.csv' % (str(dat_num).zfill(3), str(frame_idx).zfill(4)))), np.array([]), delimiter=',')
                 continue
             else:
                 all_pts = np.vstack(all_pts_list)
@@ -599,6 +600,7 @@ for dat_num in range(1, cfg.dat_num+1):
                 labels = ms.labels_
                 cluster_centers = ms.cluster_centers_
             else:
+                np.savetxt((output_path / ('pace_frame_%s_%s.csv' % (str(dat_num).zfill(3), str(frame_idx).zfill(4)))), np.array([]), delimiter=',')
                 continue
 
             labels_unique = np.unique(labels)
