@@ -10,11 +10,11 @@ from utils.srgb_conv import srgb_conv
 normalize = lambda x: (x-x.min())/(x.max()-x.min()) if x.max()-x.min() > 0 else x-x.min()
 
 
-def render_ulm(frames, tracking=None, expr='', plot_opt=False, cmap_opt=False, uint8_opt=False, gamma=None, srgb_opt=False):
+def render_ulm(frames, tracking=None, expr='', plot_opt=False, cmap_opt=False, uint8_opt=False, gamma=None, srgb_opt=False, wavelength=None, origin=None):
 
     # init variables
-    wavelength = 9.856e-05
-    origin = np.array([-72,  16, 0], dtype=int)
+    wavelength = 9.856e-05 if wavelength is None else wavelength
+    origin = np.array([-72,  16, 0], dtype=int) if origin is None else origin
 
     # remove empty arrays
     frames = [f for f in frames if f.size > 0]
@@ -30,11 +30,11 @@ def render_ulm(frames, tracking=None, expr='', plot_opt=False, cmap_opt=False, u
         frames = [f / wavelength for f in frames]
         tracks_out, tracks_interp = tracking2d(frames, max_linking_distance=max_linking_distance, max_gap_closing=max_gap_closing, min_len=min_len, scale=1/framerate, mode='interp')
         shifted_coords = [np.hstack([p[:, :2] - origin[:2], p[:, 2:]]) for p in tracks_out]
-        ulm_img, vel_map = tracks2img(shifted_coords, img_size=np.array([84, 134]), scale=5, mode='tracks')#velnorm')
+        ulm_img, vel_map = tracks2img(shifted_coords, img_size=np.array([84, 134]), scale=10, mode='tracks')#velnorm')
     else:
         # render based on localizations
         all_pts = np.vstack(frames) / wavelength - origin[:2]
-        ulm_img, vel_map = tracks2img(all_pts, img_size=np.array([84, 134]), scale=5, mode='all_in')
+        ulm_img, vel_map = tracks2img(all_pts, img_size=np.array([84, 134]), scale=10, mode='all_in')
 
     # gamma correction
     gamma = gamma if isinstance(gamma, (float, int)) else 1
