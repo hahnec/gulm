@@ -285,7 +285,8 @@ for dat_num in range(cfg.dat_start, cfg.dat_num+1):
         if cfg.logging:
             wandb.log({
                     'PULM/MeanFrameConfidence': conf_frame,
-                    'frame': int(frame_batch_ptr+frame_batch_size)*dat_num,
+                    'frame': int(frame_batch_ptr+frame_batch_size)+(dat_num-1)*800,
+                    'dat_num': int(dat_num),
                 })
         
         # reshape to dedicated batch dimension
