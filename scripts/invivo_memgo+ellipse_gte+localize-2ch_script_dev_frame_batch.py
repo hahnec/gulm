@@ -585,9 +585,14 @@ for dat_num in range(1, cfg.dat_num+1):
                             plt.savefig('./components_plot.pdf', format='pdf', backend='pdf', dpi=300, transparent=False)
                             print('saved')
                         plt.show()
+            
+            if len(all_pts_list) == 0:
+                continue
+            else:
+                all_pts = np.vstack(all_pts_list)
 
-            all_pts = np.vstack(all_pts_list)
-            rej_pts = np.vstack(rej_pts_list)
+            if len(rej_pts_list):
+                rej_pts = np.vstack(rej_pts_list)
 
             if all_pts.size > 0:
                 ms.fit(all_pts[:, :2])
