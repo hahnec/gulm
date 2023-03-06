@@ -129,7 +129,7 @@ blind_zone_idx = 0 #(1500//cfg.enlarge_factor)#3*(1500//cfg.enlarge_factor)//2
 
 acc_pace_errs = []
 acc_pala_errs = []
-for dat_num in range(1, cfg.dat_num+1):
+for dat_num in range(cfg.dat_start, cfg.dat_num+1):
 
     seq_fname = rel_path / 'Rat18_2D_PALA_0323_163558_sequence.mat'
     seq_mat = scipy.io.loadmat(seq_fname)
