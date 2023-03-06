@@ -111,7 +111,8 @@ if cfg.logging:
     wandb.define_metric('PALA/FalsePositive', step_metric='frame')
     wandb.define_metric('PALA/FalseNegative', step_metric='frame')
 
-output_path = script_path / ('other_frames_4gap_0.0825_'+str(cfg.clutter_db))
+run_name = str(wandb.run.name) if cfg.logging else 'wo_logging'
+output_path = script_path / 'results' / ('insilico_frames_db'+str(cfg.clutter_db)+'_'+run_name)
 if cfg.save_opt and not output_path.exists(): output_path.mkdir()
 
 if cfg.plt_comp_opt or cfg.plt_cluster_opt:
