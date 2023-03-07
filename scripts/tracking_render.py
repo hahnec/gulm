@@ -31,6 +31,6 @@ ulm_img_wi_tracks, _ = render_ulm(frames[:frame_end_idx], tracking='hungarian', 
 
 import wandb
 wandb.init(project="pulm_renderer", name=run_name, config=cfg, group=None)
-wandb.log({"img": wandb.Image(ulm_img_wo_tracks)})
-wandb.log({"img": wandb.Image(ulm_img_wi_tracks)})
+wandb.log({"img_wo_tracks": wandb.Image(ulm_img_wo_tracks)})
+wandb.log({"img_wi_tracks": wandb.Image(ulm_img_wi_tracks)})
 wandb.finish()
