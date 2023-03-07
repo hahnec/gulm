@@ -37,7 +37,7 @@ def render_ulm(frames, tracking=None, expr='', plot_opt=False, cmap_opt=False, u
     else:
         # render based on localizations
         all_pts = np.vstack(frames) / wavelength - origin[:2]
-        ulm_img, vel_map = tracks2img(all_pts, img_size=np.array([84, 134]), scale=10, mode='all_in')
+        ulm_img, vel_map = tracks2img(all_pts, img_size=size, scale=10, mode='all_in')
 
     # gamma correction
     gamma = gamma if isinstance(gamma, (float, int)) else 1
