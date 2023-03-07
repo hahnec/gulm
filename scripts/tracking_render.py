@@ -16,7 +16,7 @@ cfg = OmegaConf.load(str(script_path.parent / 'config_invivo.yaml'))
 # override config with CLI
 cfg = OmegaConf.merge(cfg, OmegaConf.from_cli())
 
-run_name = 'kind-gorge-589'    #'twilight-universe-545' #'bright-grass-569'   #
+run_name = 'twilight-universe-545' #'kind-gorge-589'    #'bright-grass-569'   #
 output_path = Path(cfg.data_dir) / 'Results' / ('invivo_frames_'+run_name)
 
 frames = load_ulm_data(data_path=str(output_path), expr='pace')
@@ -45,15 +45,16 @@ for i in range(len(frames)//frames_per_block+1):
     rs_mat = scipy.io.loadmat(rs_fname)
     rs_pts = np.vstack(rs_mat['Track_raw'][0, 0][:, 0])
     del rs_mat
-    pala_block_wo_tracks, _ = render_ulm(frames[i*frames_per_block:end_idx], tracking=None, plot_opt=False, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True, wavelength=9.856e-05, size=size, origin=pala_origin, fps=1000)
+    rs_list = [rs_pts[rs_pts[:, -1]==i+1][:, :2][:, ::-1] for i in range(int(np.max(rs_pts[:, -1])))]
+    pala_block_wo_tracks, _ = render_ulm(rs_list, tracking=None, plot_opt=False, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True, wavelength=1, size=size, origin=np.zeros(3), fps=1000)
     pala_img_wo_tracks += pala_block_wo_tracks
-    pala_block_wi_tracks, _ = render_ulm(frames[i*frames_per_block:end_idx], tracking='hungarian', plot_opt=False, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True, wavelength=9.856e-05, size=size, origin=pala_origin, fps=1000)
+    pala_block_wi_tracks, _ = render_ulm(rs_list, tracking='hungarian', plot_opt=False, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True, wavelength=1, size=size, origin=np.zeros(3), fps=1000)
     pala_img_wi_tracks += pala_block_wi_tracks
 
 import wandb
 wandb.init(project="pulm_renderer", name=run_name, config=cfg, group=None)
-wandb.log({"img": wandb.Image(pace_img_wo_tracks)})
-wandb.log({"img_tracking": wandb.Image(pace_img_wi_tracks)})
-wandb.log({"img": wandb.Image(pala_img_wo_tracks)})
-wandb.log({"img_tracking": wandb.Image(pala_block_wi_tracks)})
+wandb.log({"img": wandb.Image(pace_img_wo_tracks/(pace_img_wo_tracks).max())})
+wandb.log({"img_tracking": wandb.Image(pace_img_wi_tracks/(pace_img_wi_tracks).max())})
+wandb.log({"img": wandb.Image(pala_img_wo_tracks/(pala_img_wo_tracks).max())})
+wandb.log({"img_tracking": wandb.Image(pala_img_wi_tracks/(pala_img_wi_tracks).max())})
 wandb.finish()
