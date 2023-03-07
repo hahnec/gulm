@@ -16,7 +16,7 @@ cfg = OmegaConf.load(str(script_path.parent / 'config_invivo.yaml'))
 # override config with CLI
 cfg = OmegaConf.merge(cfg, OmegaConf.from_cli())
 
-run_name = 'twilight-universe-545' #'kind-gorge-589'    #'bright-grass-569'   #
+run_name = 'kind-gorge-589'    #'twilight-universe-545' #'bright-grass-569'   #
 output_path = Path(cfg.data_dir) / 'Results' / ('invivo_frames_'+run_name)
 
 frames = load_ulm_data(data_path=str(output_path), expr='pace')
@@ -50,6 +50,9 @@ for i in range(len(frames)//frames_per_block+1):
     pala_img_wo_tracks += pala_block_wo_tracks
     pala_block_wi_tracks, _ = render_ulm(rs_list, tracking='hungarian', plot_opt=False, cmap_opt=True, uint8_opt=False, gamma=cfg.gamma, srgb_opt=True, wavelength=1, size=size, origin=np.zeros(3), fps=1000)
     pala_img_wi_tracks += pala_block_wi_tracks
+
+    print('Avg. PACE points per frame %s' % str(np.mean([len(l) for l in frames[i*frames_per_block:end_idx]])))
+    print('Avg. PALA points per frame %s' % str(np.mean([len(l) for l in rs_list])))
 
 import wandb
 wandb.init(project="pulm_renderer", name=run_name, config=cfg, group=None)
