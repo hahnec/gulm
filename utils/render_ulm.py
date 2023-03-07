@@ -90,7 +90,7 @@ def load_ulm_data(data_path, expr='pace'):
         # skip files which do not contain expression
         if fname.name.__contains__(expr):
             arr = np.loadtxt(fname, delimiter=',', skiprows=1)
-            if arr.size == 0: arr = np.ones([1, 2])*float('nan')     # change dimensions of empty array
+            if arr.size == 0: arr = np.ones([1, 2])*1e9     # change dimensions of empty array
             if len(arr.shape) != 2: arr = arr[None, :]
             frames.append(arr)
     assert len(frames) > 0, 'No frames found'
