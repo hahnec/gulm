@@ -24,7 +24,7 @@ from utils.pala_beamformer import pala_beamformer, decompose_frame
 from utils.pala_error import rmse_unique
 from utils.render_ulm import render_ulm, load_ulm_data
 from utils.iq2rf import iq2rf
-from utils.speckle_noise import add_pala_noise
+from utils.pala_noise import add_pala_noise
 from utils.bandpass import bandpass_filter
 
 
@@ -241,7 +241,7 @@ for dat_num in range(cfg.dat_start, cfg.dat_num):
 
         if np.isreal(cfg.clutter_db) and cfg.clutter_db < 0:
             # add noise according to PALA study
-            data_batch = add_pala_noise(data_batch, clutter_db=cfg.clutter_db, sigma=1.5)
+            data_batch = add_pala_noise(data_batch, clutter_db=cfg.clutter_db, sigma=1.5, multi=cfg.noise_multi)
             # bandpass filter to counteract impact of noise
             start = time.perf_counter()
             data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*virtual_upsample, sw=0.6)#cfg.enlarge_factor)
@@ -638,8 +638,8 @@ for dat_num in range(cfg.dat_start, cfg.dat_num):
                             fig.patch.set_alpha(0)  # transparency
                             plt.savefig('./components_plot.pdf', format='pdf', backend='pdf', dpi=300, transparent=False)
                             print('saved')
-                        plt.close()
-                        #plt.show()
+                        #plt.close()
+                        plt.show()
 
             all_pts = np.vstack(all_pts_list)
             rej_pts = np.vstack(rej_pts_list)
