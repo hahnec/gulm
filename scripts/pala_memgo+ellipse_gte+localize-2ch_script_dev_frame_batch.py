@@ -124,13 +124,13 @@ if cfg.plt_comp_opt or cfg.plt_cluster_opt:
 rel_path = Path(cfg.data_dir)
 
 # fix noise
-np.random.seed(3008)
+np.random.seed(42)
 
 # initialize intersector
 ell_intersector = EllipseIntersection()
 
 # component index for plot
-k_idx =  6 #2 #10 #4
+k_idx = 6
 
 time2sample = lambda toa, phi_shift: np.round(((toa-nonplanar_tdx - phi_shift/(2*np.pi*param.fs) * param.c)/param.c - param.t0) * param.fs * cfg.enlarge_factor).astype(int)
 
@@ -539,7 +539,7 @@ for dat_num in range(cfg.dat_start, cfg.dat_num):
                             vector_b = np.longdouble([0, -1])#np.longdouble([vsource[0], vsource[1]])
                             angle_deg = np.arccos(np.dot(vector_a, vector_b) / (np.linalg.norm(vector_a) * np.linalg.norm(vector_b))) / np.pi * 180
                             angle_deg *= np.sign(vsource[0]-cen[0]) * np.sign(vsource[0]+np.spacing(1)) #-1 *np.sign(param.xe[el_idx*cfg.ch_gap])
-                            ell = Ellipse(xy=xz, width=2*minor_axis_radius, height=2*major_axis_radius, angle=angle_deg, edgecolor=color, linewidth=1.5, fc='None', rasterized=True)
+                            ell = Ellipse(xy=xz, width=2*minor_axis_radius, height=2*major_axis_radius, angle=angle_deg, edgecolor=color, linewidth=2, fc='None', rasterized=True)
                             ax1.add_artist(ell)
 
                             # plot detected mu echoes param
