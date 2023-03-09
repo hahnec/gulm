@@ -265,7 +265,7 @@ for dat_num in range(cfg.dat_start, cfg.dat_num):
 
         # MEMGO optimization
         try:
-            memgo_batch, result, conf_batch, echo_batch = batch_staged_memgo(data_batch.T, x=t, max_iter_per_stage=cfg.max_iter, echo_threshold=cfg.echo_threshold, grad_step=cfg.enlarge_factor/6*5, upsample_factor=cfg.enlarge_factor, fs=cfg.fs, print_opt=True)
+            memgo_batch, result, conf_batch, echo_batch = batch_staged_memgo(data_batch.T, x=t, max_iter_per_stage=cfg.max_iter, echo_threshold=cfg.echo_threshold, echo_max=cfg.comp_max*2, grad_step=cfg.enlarge_factor/6*5, upsample_factor=cfg.enlarge_factor, fs=cfg.fs, print_opt=True)
         except torch._C._LinAlgError:
             continue
         print('MEMGO frame time: %s' % str((time.perf_counter()-start)/frame_batch_size))
