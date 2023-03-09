@@ -27,7 +27,6 @@ from utils.iq2rf import iq2rf
 from utils.pala_beamformer import decompose_frame, pala_beamformer
 from utils.pala_error import rmse_unique
 from utils.render_ulm import load_ulm_data, render_ulm
-from utils.speckle_noise import add_pala_noise
 from utils.svd_filter import svd_filter
 from utils.pow_law import compensate_pow_law
 
@@ -218,6 +217,10 @@ for dat_num in range(cfg.dat_start, cfg.dat_num+1):
     #batch_rf_iq_frames = 20*np.log10(batch_rf_iq_frames)
     #cfg.echo_threshold = float(20*np.log10(cfg.echo_threshold))
 
+    # crop in z direction
+    batch_rf_iq_frames = batch_rf_iq_frames[:, :300, ...]
+    batch_rf_iq_frames[:, :10, ...] = 0
+
     # SVD filter only central plane wave
     if cfg.temp_filter_opt: 
         but_b,but_a = signal.butter(2, np.array([50, 250])/(1000/2), btype='bandpass')
@@ -240,8 +243,8 @@ for dat_num in range(cfg.dat_start, cfg.dat_num+1):
         rf_iq_frames[..., :blind_zone_idx, :] = 0
 
         # crop left and right side of image (transducer array)
-        rf_iq_frames_gap = rf_iq_frames#[..., 32:-32]
-        param.xe_gap = param.xe#[32:-32]
+        rf_iq_frames_gap = rf_iq_frames[..., 16:-16]
+        param.xe_gap = param.xe[16:-16]
 
         rf_iq_frames_gap = rf_iq_frames_gap[:, cfg.wave_idx, :, ::cfg.ch_gap]
 
@@ -271,7 +274,7 @@ for dat_num in range(cfg.dat_start, cfg.dat_num+1):
 
         # MEMGO optimization
         try:
-            memgo_batch, result, conf_batch, echo_batch = batch_staged_memgo(data_batch.T, x=t, max_iter_per_stage=cfg.max_iter, echo_threshold=cfg.echo_threshold, grad_step=cfg.enlarge_factor/6*5, upsample_factor=cfg.enlarge_factor, fs=cfg.fs, print_opt=True)
+            memgo_batch, result, conf_batch, echo_batch = batch_staged_memgo(data_batch.T, x=t, max_iter_per_stage=cfg.max_iter, echo_threshold=cfg.echo_threshold, echo_max=cfg.comp_max*3, grad_step=cfg.enlarge_factor/6*5, upsample_factor=cfg.enlarge_factor, fs=cfg.fs, print_opt=True)
         except torch._C._LinAlgError:
             continue
         print('MEMGO frame time: %s' % str((time.perf_counter()-start)/frame_batch_size))
