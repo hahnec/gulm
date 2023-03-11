@@ -134,6 +134,8 @@ k_idx = 6
 
 time2sample = lambda toa, phi_shift: np.round(((toa-nonplanar_tdx - phi_shift/(2*np.pi*param.fs) * param.c)/param.c - param.t0) * param.fs * cfg.enlarge_factor).astype(int)
 
+mat2dict = lambda mat: dict([(k[0], v.squeeze()) for v, k in zip(mat[0][0], list(mat.dtype.descr))])
+
 torch.cuda.empty_cache()
 frame_batch_size = cfg.frame_batch_size
 
@@ -145,6 +147,58 @@ seq_mat = scipy.io.loadmat(seq_fname)
 
 pos_fname = rel_path / 'PALA_InSilicoFlow_v3_pos_Tracks_dt.mat'
 pos_mat = scipy.io.loadmat(pos_fname)
+
+P = mat2dict(seq_mat['P'])
+PData = mat2dict(seq_mat['PData'])
+Trans = mat2dict(seq_mat['Trans'])
+Media = mat2dict(seq_mat['Media'])
+UF = mat2dict(seq_mat['UF'])
+Resource = mat2dict(seq_mat['Resource'])
+TW = mat2dict(seq_mat['TW'])
+TX = mat2dict(seq_mat['TX'])
+Receive = mat2dict(seq_mat['Receive'])
+del seq_mat
+
+class Param:
+    pass
+
+param = Param()
+param.bandwidth = (Trans['Bandwidth'][1] - Trans['Bandwidth'][0]) / Trans['frequency'] * 100
+param.f0 = Trans['frequency']*1e6 #central frequency [Hz]
+param.fs = Receive['demodFrequency']*1e6 # sampling frequency (100% bandwidth mode of Verasonics) [Hz]
+param.c = float(Resource['Parameters']['speedOfSound']) # speed of sound [m/s]
+param.wavelength = param.c / param.f0 # Wavelength [m]
+param.xe = Trans['ElementPos'][:, 0]/1000 # x coordinates of transducer elements [m]
+param.Nelements = Trans['numelements'] # number of transducers
+blind_zone = P['startDepth']*param.wavelength # minimum z in [m]
+param.t0 = 2*blind_zone/param.c - TW['peak']/param.f0 # time between the emission and the beginning of reception [s]
+
+angles_list = np.array([TX['Steer']*1, TX['Steer']*0, TX['Steer']*-1, TX['Steer']*0])
+angles_list = angles_list[:P['numTx'], 0]
+param.angles_list = angles_list # list of angles [rad] (in TX.Steer)
+param.fnumber = 1.9 # fnumber
+param.compound = 1 # flag to compound [1/0]
+
+# pixel grid (extracted from PData), in [m]
+param.x = (PData['Origin'][0]+np.arange(PData['Size'][1])*PData['PDelta'][2])*param.wavelength
+param.z = (PData['Origin'][2]+np.arange(PData['Size'][0])*PData['PDelta'][0])*param.wavelength
+[mesh_x, mesh_z] = np.meshgrid(param.x, param.z)
+del angles_list
+
+extent = [min(param.x), max(param.x), min(param.z), max(param.z)]
+aspect = max(param.z)/(max(param.x)-min(param.x))#1
+
+# initialize clustering method
+ms = MeanShift(bandwidth=param.wavelength, bin_seeding=True, cluster_all=True, n_jobs=None, max_iter=300, min_bin_freq=1)
+
+# virtual source (non-planar wave assumption)
+beta = 1e-8
+width = param.xe[-1]-param.xe[0]    # extent of the phased-array
+vsource = [-width*np.cos(param.angles_list[cfg.wave_idx]) * np.sin(param.angles_list[cfg.wave_idx])/beta, -width*np.cos(param.angles_list[cfg.wave_idx])**2/beta]
+nonplanar_tdx = np.hypot((abs(vsource[0])-width/2)*(abs(vsource[0])>width/2), vsource[1])
+src_vec = np.array([vsource[0], vsource[1]])
+
+cfg['fs'] = float(Receive['demodFrequency']*1e6)
 
 acc_pace_errs = []
 acc_pala_errs = []
@@ -172,65 +226,12 @@ for dat_num in range(cfg.dat_start, cfg.dat_num):
     if np.isreal(cfg.clutter_db) and cfg.clutter_db < 0: ref_pts = np.vstack(ref_pts[:,0])
     del res_mat, pala_local_results
 
-    mat2dict = lambda mat: dict([(k[0], v.squeeze()) for v, k in zip(mat[0][0], list(mat.dtype.descr))])
-
-    P = mat2dict(seq_mat['P'])
-    PData = mat2dict(seq_mat['PData'])
-    Trans = mat2dict(seq_mat['Trans'])
-    Media = mat2dict(seq_mat['Media'])
-    UF = mat2dict(seq_mat['UF'])
-    Resource = mat2dict(seq_mat['Resource'])
-    TW = mat2dict(seq_mat['TW'])
-    TX = mat2dict(seq_mat['TX'])
-    Receive = mat2dict(seq_mat['Receive'])
-    del seq_mat
-
     RFdata = rf_mat['RFdata']
     ListPos = rf_mat['ListPos']
     Media = mat2dict(rf_mat['Media'])
     P = mat2dict(rf_mat['P'])
 
-    class Param:
-        pass
-
-    param = Param()
-    param.bandwidth = (Trans['Bandwidth'][1] - Trans['Bandwidth'][0]) / Trans['frequency'] * 100
-    param.f0 = Trans['frequency']*1e6 #central frequency [Hz]
-    param.fs = Receive['demodFrequency']*1e6 # sampling frequency (100% bandwidth mode of Verasonics) [Hz]
-    param.c = float(Resource['Parameters']['speedOfSound']) # speed of sound [m/s]
-    param.wavelength = param.c / param.f0 # Wavelength [m]
-    param.xe = Trans['ElementPos'][:, 0]/1000 # x coordinates of transducer elements [m]
-    param.Nelements = Trans['numelements'] # number of transducers
-    blind_zone = P['startDepth']*param.wavelength # minimum z in [m]
-    param.t0 = 2*blind_zone/param.c - TW['peak']/param.f0 # time between the emission and the beginning of reception [s]
-
-    angles_list = np.array([TX['Steer']*1, TX['Steer']*0, TX['Steer']*-1, TX['Steer']*0])
-    angles_list = angles_list[:P['numTx'], 0]
-    param.angles_list = angles_list # list of angles [rad] (in TX.Steer)
-    param.fnumber = 1.9 # fnumber
-    param.compound = 1 # flag to compound [1/0]
-
-    # pixel grid (extracted from PData), in [m]
-    param.x = (PData['Origin'][0]+np.arange(PData['Size'][1])*PData['PDelta'][2])*param.wavelength
-    param.z = (PData['Origin'][2]+np.arange(PData['Size'][0])*PData['PDelta'][0])*param.wavelength
-    [mesh_x, mesh_z] = np.meshgrid(param.x, param.z)
-    del angles_list
-
-    extent = [min(param.x), max(param.x), min(param.z), max(param.z)]
-    aspect = max(param.z)/(max(param.x)-min(param.x))#1
-
     cfg.frame_num = rf_mat['RFdata'].shape[-1] if cfg.frame_num is None else cfg.frame_num
-    cfg['fs'] = float(Receive['demodFrequency']*1e6)
-
-    # initialize clustering method
-    ms = MeanShift(bandwidth=param.wavelength, bin_seeding=True, cluster_all=True, n_jobs=None, max_iter=300, min_bin_freq=1)
-
-    # virtual source (non-planar wave assumption)
-    beta = 1e-8
-    width = param.xe[-1]-param.xe[0]    # extent of the phased-array
-    vsource = [-width*np.cos(param.angles_list[cfg.wave_idx]) * np.sin(param.angles_list[cfg.wave_idx])/beta, -width*np.cos(param.angles_list[cfg.wave_idx])**2/beta]
-    nonplanar_tdx = np.hypot((abs(vsource[0])-width/2)*(abs(vsource[0])>width/2), vsource[1])
-    src_vec = np.array([vsource[0], vsource[1]])
 
     frame_start = 0
     for frame_batch_ptr in range(frame_start, frame_start+cfg.frame_num, frame_batch_size):
