@@ -15,7 +15,8 @@ from sklearn.cluster import MeanShift, estimate_bandwidth
 from pathlib import Path
 from omegaconf import OmegaConf
 import wandb
-from skimage.metrics import structural_similarity
+from skimage.metrics import structural_similarity, peak_signal_noise_ratio
+from scipy.interpolate import interp1d
 
 from multimodal_emg.batch_staged_memgo import batch_staged_memgo
 from gte_intersect.ellipse import EllipseIntersection
@@ -23,10 +24,9 @@ from utils.pala_beamformer import pala_beamformer, decompose_frame
 from utils.pala_error import rmse_unique
 from utils.render_ulm import render_ulm, load_ulm_data
 from utils.iq2rf import iq2rf
-from utils.speckle_noise import add_pala_noise
+from utils.pala_noise import add_pala_noise
 from utils.bandpass import bandpass_filter
 
-# tbd: replace t[echo_list] with batch_echo_array
 
 def angle_amplitude_ratio(amplitude, xe_pos, pt):
     
@@ -55,7 +55,7 @@ def get_amp_grad(data, toa, phi_shift, ch_idx, grad_step=1):
 
     return sample_amp, gradie_amp
 
-def get_overall_phase_shift(data_arr, toas, phi_shifts, ch_idx, ch_gap, cch_sample, cch_grad, grad_step=1):
+def get_overall_phase_shift(data_arr, toas, phi_shifts, ch_idx, cch_sample, cch_grad, grad_step=1):
     
     phi_shifts[-np.pi > phi_shifts] += +2*np.pi
     phi_shifts[+np.pi < phi_shifts] += -2*np.pi
@@ -85,7 +85,7 @@ def get_overall_phase_shift(data_arr, toas, phi_shifts, ch_idx, ch_gap, cch_samp
 script_path = Path(__file__).parent.resolve()
 
 # load config
-cfg = OmegaConf.load(str(script_path.parent / 'config.yaml'))
+cfg = OmegaConf.load(str(script_path.parent / 'config_insilico.yaml'))
 
 # override config with CLI
 cfg = OmegaConf.merge(cfg, OmegaConf.from_cli())
@@ -111,10 +111,11 @@ if cfg.logging:
     wandb.define_metric('PALA/FalsePositive', step_metric='frame')
     wandb.define_metric('PALA/FalseNegative', step_metric='frame')
 
-output_path = script_path / 'other_frames'
+run_name = str(wandb.run.name) if cfg.logging else 'wo_logging'
+output_path = script_path / 'results_wo_noise' / ('insilico_frames_db'+str(cfg.clutter_db)+'_'+run_name)
 if cfg.save_opt and not output_path.exists(): output_path.mkdir()
 
-if cfg.plt_comp_opt or cfg.plt_frame_opt:
+if cfg.plt_comp_opt or cfg.plt_cluster_opt:
     plt.rcParams.update({
         "text.usetex": True,
         "font.family": "Helvetica"
@@ -122,122 +123,144 @@ if cfg.plt_comp_opt or cfg.plt_frame_opt:
 
 rel_path = Path(cfg.data_dir)
 
+# fix noise
+np.random.seed(42)
+
 # initialize intersector
 ell_intersector = EllipseIntersection()
 
+# component index for plot
+k_idx = 6
+
 time2sample = lambda toa, phi_shift: np.round(((toa-nonplanar_tdx - phi_shift/(2*np.pi*param.fs) * param.c)/param.c - param.t0) * param.fs * cfg.enlarge_factor).astype(int)
+
+mat2dict = lambda mat: dict([(k[0], v.squeeze()) for v, k in zip(mat[0][0], list(mat.dtype.descr))])
 
 torch.cuda.empty_cache()
 frame_batch_size = cfg.frame_batch_size
 
+cfg_fname = rel_path / 'PALA_InSilicoFlow_v3_config.mat'
+cfg_mat = scipy.io.loadmat(cfg_fname)
+
+seq_fname = rel_path / 'PALA_InSilicoFlow_sequence.mat'
+seq_mat = scipy.io.loadmat(seq_fname)
+
+pos_fname = rel_path / 'PALA_InSilicoFlow_v3_pos_Tracks_dt.mat'
+pos_mat = scipy.io.loadmat(pos_fname)
+
+P = mat2dict(seq_mat['P'])
+PData = mat2dict(seq_mat['PData'])
+Trans = mat2dict(seq_mat['Trans'])
+Media = mat2dict(seq_mat['Media'])
+UF = mat2dict(seq_mat['UF'])
+Resource = mat2dict(seq_mat['Resource'])
+TW = mat2dict(seq_mat['TW'])
+TX = mat2dict(seq_mat['TX'])
+Receive = mat2dict(seq_mat['Receive'])
+del seq_mat
+
+class Param:
+    pass
+
+param = Param()
+param.bandwidth = (Trans['Bandwidth'][1] - Trans['Bandwidth'][0]) / Trans['frequency'] * 100
+param.f0 = Trans['frequency']*1e6 #central frequency [Hz]
+param.fs = Receive['demodFrequency']*1e6 # sampling frequency (100% bandwidth mode of Verasonics) [Hz]
+param.c = float(Resource['Parameters']['speedOfSound']) # speed of sound [m/s]
+param.wavelength = param.c / param.f0 # Wavelength [m]
+param.xe = Trans['ElementPos'][:, 0]/1000 # x coordinates of transducer elements [m]
+param.Nelements = Trans['numelements'] # number of transducers
+blind_zone = P['startDepth']*param.wavelength # minimum z in [m]
+param.t0 = 2*blind_zone/param.c - TW['peak']/param.f0 # time between the emission and the beginning of reception [s]
+
+angles_list = np.array([TX['Steer']*1, TX['Steer']*0, TX['Steer']*-1, TX['Steer']*0])
+angles_list = angles_list[:P['numTx'], 0]
+param.angles_list = angles_list # list of angles [rad] (in TX.Steer)
+param.fnumber = 1.9 # fnumber
+param.compound = 1 # flag to compound [1/0]
+
+# pixel grid (extracted from PData), in [m]
+param.x = (PData['Origin'][0]+np.arange(PData['Size'][1])*PData['PDelta'][2])*param.wavelength
+param.z = (PData['Origin'][2]+np.arange(PData['Size'][0])*PData['PDelta'][0])*param.wavelength
+[mesh_x, mesh_z] = np.meshgrid(param.x, param.z)
+del angles_list
+
+extent = [min(param.x), max(param.x), min(param.z), max(param.z)]
+aspect = max(param.z)/(max(param.x)-min(param.x))#1
+
+# initialize clustering method
+ms = MeanShift(bandwidth=param.wavelength, bin_seeding=True, cluster_all=True, n_jobs=None, max_iter=300, min_bin_freq=1)
+
+# virtual source (non-planar wave assumption)
+beta = 1e-8
+width = param.xe[-1]-param.xe[0]    # extent of the phased-array
+vsource = [-width*np.cos(param.angles_list[cfg.wave_idx]) * np.sin(param.angles_list[cfg.wave_idx])/beta, -width*np.cos(param.angles_list[cfg.wave_idx])**2/beta]
+nonplanar_tdx = np.hypot((abs(vsource[0])-width/2)*(abs(vsource[0])>width/2), vsource[1])
+src_vec = np.array([vsource[0], vsource[1]])
+
+cfg['fs'] = float(Receive['demodFrequency']*1e6)
+
 acc_pace_errs = []
 acc_pala_errs = []
-for dat_num in range(1, cfg.dat_num):
+for dat_num in range(cfg.dat_start, cfg.dat_num):
 
-    cfg_fname = rel_path / 'PALA_InSilicoFlow_v3_config.mat'
-    cfg_mat = scipy.io.loadmat(cfg_fname)
-
-    seq_fname = rel_path / 'PALA_InSilicoFlow_sequence.mat'
-    seq_mat = scipy.io.loadmat(seq_fname)
-
-    pos_fname = rel_path / 'PALA_InSilicoFlow_v3_pos_Tracks_dt.mat'
-    pos_mat = scipy.io.loadmat(pos_fname)
-
-    res_fname = rel_path / 'Results' / 'matlab_wo_noise' / ('PALA_InSilicoFlow_raw_'+str(dat_num)+'.mat')   #.zfill(3)
+    if np.isreal(cfg.clutter_db) and cfg.clutter_db < 0:
+        assert cfg.clutter_db in [-10, -20, -30, -40, -50], 'Noise level not available for PALA'
+        res_fname = rel_path / 'Results' / 'matlab_w_noise' / ('PALA_InSilicoFlow_raw_db-'+str(abs(cfg.clutter_db))+'_'+str(dat_num)+'.mat')
+    else:
+        res_fname = rel_path / 'Results' / 'matlab_wo_noise' / ('PALA_InSilicoFlow_raw_'+str(dat_num)+'.mat')
+    track_key = 'Track_raw'
     res_mat = scipy.io.loadmat(res_fname)
 
     rf_fname = rel_path / 'RF' / ('PALA_InSilicoFlow_RF'+str(dat_num).zfill(3)+'.mat')
     rf_mat = scipy.io.loadmat(rf_fname)
 
-    if cfg.plt_comp_opt or cfg.plt_frame_opt:
+    if cfg.plt_comp_opt or cfg.plt_cluster_opt:
         iq_fname = rel_path / 'IQ' / ('PALA_InSilicoFlow_IQ'+str(dat_num).zfill(3)+'.mat')
         iq_mat = scipy.io.loadmat(iq_fname)
 
     pala_local_methods = [el[0] for el in res_mat['listAlgo'][0]]
-    pala_local_results = {m: arr for arr, m in zip(res_mat['Track_raw'][0], pala_local_methods)}
+    pala_local_results = {m: arr for arr, m in zip(res_mat[track_key][0], pala_local_methods)}
     pala_method = pala_local_methods[-1]
     ref_pts = pala_local_results[pala_method]
-
-    mat2dict = lambda mat: dict([(k[0], v.squeeze()) for v, k in zip(mat[0][0], list(mat.dtype.descr))])
-
-    P = mat2dict(seq_mat['P'])
-    PData = mat2dict(seq_mat['PData'])
-    Trans = mat2dict(seq_mat['Trans'])
-    Media = mat2dict(seq_mat['Media'])
-    UF = mat2dict(seq_mat['UF'])
-    Resource = mat2dict(seq_mat['Resource'])
-    TW = mat2dict(seq_mat['TW'])
-    TX = mat2dict(seq_mat['TX'])
-    Receive = mat2dict(seq_mat['Receive'])
-    del seq_mat
+    if np.isreal(cfg.clutter_db) and cfg.clutter_db < 0: ref_pts = np.vstack(ref_pts[:,0])
+    del res_mat, pala_local_results
 
     RFdata = rf_mat['RFdata']
     ListPos = rf_mat['ListPos']
     Media = mat2dict(rf_mat['Media'])
     P = mat2dict(rf_mat['P'])
 
-    class Param:
-        pass
-
-    param = Param()
-    param.bandwidth = (Trans['Bandwidth'][1] - Trans['Bandwidth'][0]) / Trans['frequency'] * 100
-    param.f0 = Trans['frequency']*1e6 #central frequency [Hz]
-    param.fs = Receive['demodFrequency']*1e6 # sampling frequency (100% bandwidth mode of Verasonics) [Hz]
-    param.c = float(Resource['Parameters']['speedOfSound']) # speed of sound [m/s]
-    param.wavelength = param.c / param.f0 # Wavelength [m]
-    param.xe = Trans['ElementPos'][:, 0]/1000 # x coordinates of transducer elements [m]
-    param.Nelements = Trans['numelements'] # number of transducers
-    blind_zone = P['startDepth']*param.wavelength # minimum z in [m]
-    param.t0 = 2*blind_zone/param.c - TW['peak']/param.f0 # time between the emission and the beginning of reception [s]
-
-    angles_list = np.array([TX['Steer']*1, TX['Steer']*0, TX['Steer']*-1, TX['Steer']*0])
-    angles_list = angles_list[:P['numTx'], 0]
-    param.angles_list = angles_list # list of angles [rad] (in TX.Steer)
-    param.fnumber = 1.9 # fnumber
-    param.compound = 1 # flag to compound [1/0]
-
-    # pixel grid (extracted from PData), in [m]
-    param.x = (PData['Origin'][0]+np.arange(PData['Size'][1])*PData['PDelta'][2])*param.wavelength
-    param.z = (PData['Origin'][2]+np.arange(PData['Size'][0])*PData['PDelta'][0])*param.wavelength
-    [mesh_x, mesh_z] = np.meshgrid(param.x, param.z)
-    del angles_list
-
-    extent = [min(param.x), max(param.x), min(param.z), max(param.z)]
-    aspect = max(param.z)/(max(param.x)-min(param.x))#1
-
     cfg.frame_num = rf_mat['RFdata'].shape[-1] if cfg.frame_num is None else cfg.frame_num
-    cfg['fs'] = float(Receive['demodFrequency']*1e6)
-
-    # initialize clustering method
-    ms = MeanShift(bandwidth=param.wavelength, bin_seeding=True, cluster_all=True, n_jobs=None, max_iter=300, min_bin_freq=1)
-
-    # virtual source (non-planar wave assumption)
-    beta = 1e-8
-    width = param.xe[-1]-param.xe[0]    # extent of the phased-array
-    vsource = [-width*np.cos(param.angles_list[cfg.wave_idx]) * np.sin(param.angles_list[cfg.wave_idx])/beta, -width*np.cos(param.angles_list[cfg.wave_idx])**2/beta]
-    nonplanar_tdx = np.hypot((abs(vsource[0])-width/2)*(abs(vsource[0])>width/2), vsource[1])
-    src_vec = np.array([vsource[0], vsource[1]])
 
     frame_start = 0
     for frame_batch_ptr in range(frame_start, frame_start+cfg.frame_num, frame_batch_size):
 
         # rf_iq_frame dimensions: frames x angles x samples x channels
-        rf_iq_frames = np.array([decompose_frame(P, RFdata[..., frame_idx]) for frame_idx in range(frame_batch_ptr, frame_batch_ptr+frame_batch_size)])
+        rf_iq_frames = np.array([decompose_frame(RFdata[..., frame_idx], int(P['numTx']), int(P['NDsample'])) for frame_idx in range(frame_batch_ptr, frame_batch_ptr+frame_batch_size)])
 
         # convert IQ to RF data
-        start = time.perf_counter()
-        data_batch = iq2rf(np.hstack(rf_iq_frames[:, cfg.wave_idx, :, ::cfg.ch_gap]), mod_freq=param.f0, upsample_factor=cfg.enlarge_factor)
-        print('Interpolation time: %s' % str(time.perf_counter()-start))
-        
-        if np.isreal(cfg.noise_db) and cfg.noise_db < 0:
+        virtual_upsample = RFdata.shape[1]//cfg.ch_gap
+        data_batch = iq2rf(np.hstack(rf_iq_frames[:, cfg.wave_idx, :, ::cfg.ch_gap]), mod_freq=param.f0, upsample_factor=virtual_upsample)
+
+        if np.isreal(cfg.clutter_db) and cfg.clutter_db < 0:
             # add noise according to PALA study
-            data_batch = add_pala_noise(data_batch, clutter_db=cfg.noise_db)
+            data_batch = add_pala_noise(data_batch, clutter_db=cfg.clutter_db, sigma=1.5, multi=cfg.noise_multi)
             # bandpass filter to counteract impact of noise
-            data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*cfg.enlarge_factor)
+            start = time.perf_counter()
+            data_batch = bandpass_filter(data_batch, freq_cen=param.f0, freq_smp=param.fs*virtual_upsample, sw=0.6)#cfg.enlarge_factor)
+            print('BP-filter time: %s' % str(time.perf_counter()-start))
+
+        # upsample
+        start = time.perf_counter()
+        x = np.linspace(0, len(data_batch)/param.f0, num=len(data_batch), endpoint=True)
+        t = np.linspace(0, len(data_batch)/param.f0, num=int(len(data_batch)*cfg.enlarge_factor/virtual_upsample), endpoint=True)
+        f = interp1d(x, data_batch, axis=0)
+        data_batch = f(t)
+        print('Interpolation time: %s' % str(time.perf_counter()-start))
 
         # prepare variables for optimization
-        data_batch = data_batch[..., ::-1]-np.zeros_like(data_batch) # enforce positive stride
-        data_batch = torch.from_numpy(data_batch).to(device=cfg.device)
+        data_batch = torch.from_numpy(data_batch.copy()).to(device=cfg.device)
         t = torch.arange(0, len(data_batch[:, 0])/param.fs/cfg.enlarge_factor, 1/param.fs/cfg.enlarge_factor, device=data_batch.device, dtype=data_batch.dtype)
 
         # prepare MEMGO performance measurement
@@ -246,7 +269,7 @@ for dat_num in range(1, cfg.dat_num):
 
         # MEMGO optimization
         try:
-            memgo_batch, result, conf_batch, echo_batch = batch_staged_memgo(data_batch.T, x=t, max_iter_per_stage=cfg.max_iter, echo_threshold=cfg.echo_threshold, grad_step=cfg.enlarge_factor/6*5, upsample_factor=cfg.enlarge_factor, fs=cfg.fs, print_opt=True)
+            memgo_batch, result, conf_batch, echo_batch = batch_staged_memgo(data_batch.T, x=t, max_iter_per_stage=cfg.max_iter, echo_threshold=cfg.echo_threshold, echo_max=cfg.comp_max*2, grad_step=cfg.enlarge_factor/6*5, upsample_factor=cfg.enlarge_factor, fs=cfg.fs, print_opt=True)
         except torch._C._LinAlgError:
             continue
         print('MEMGO frame time: %s' % str((time.perf_counter()-start)/frame_batch_size))
@@ -284,9 +307,13 @@ for dat_num in range(1, cfg.dat_num):
 
             # PALA
             pts_frame_idcs = ref_pts[:, -1]-1 == frame_idx
-            ref_imax = ref_pts[pts_frame_idcs][:, 0]    # intensity max
-            ref_zpos = ref_pts[pts_frame_idcs][:, 1]
-            ref_xpos = ref_pts[pts_frame_idcs][:, 2]
+            if np.isreal(cfg.clutter_db) and cfg.clutter_db < 0:
+                ref_zpos = ref_pts[pts_frame_idcs][:, 0]
+                ref_xpos = ref_pts[pts_frame_idcs][:, 1]
+            else:
+                ref_imax = ref_pts[pts_frame_idcs][:, 0]    # intensity max
+                ref_zpos = ref_pts[pts_frame_idcs][:, 1]
+                ref_xpos = ref_pts[pts_frame_idcs][:, 2]
 
             # beamforming
             if cfg.plt_comp_opt or cfg.plt_cluster_opt:
@@ -367,8 +394,8 @@ for dat_num in range(1, cfg.dat_num):
                 phi_shifts_lch = (comps_lch[..., 5] - np.repeat(comps_cch[..., 5], echo_per_sch, axis=1))
                 phi_shifts_rch = (comps_rch[..., 5] - np.repeat(comps_cch[..., 5], echo_per_sch, axis=1))
                 phase_grad_step = 1 #int((param.wavelength/8)/param.c*param.fs*cfg.enlarge_factor)
-                phi_shifts_lch = get_overall_phase_shift(data_arr, toas_lch, phi_shifts_lch, (ch_idcs-tx_gap)[:, None], cfg.ch_gap, np.repeat(cch_sample, 3, axis=1), np.repeat(cch_grad, 3, axis=1), grad_step=phase_grad_step)
-                phi_shifts_rch = get_overall_phase_shift(data_arr, toas_rch, phi_shifts_rch, (ch_idcs+tx_gap)[:, None], cfg.ch_gap, np.repeat(cch_sample, 3, axis=1), np.repeat(cch_grad, 3, axis=1), grad_step=phase_grad_step)
+                phi_shifts_lch = get_overall_phase_shift(data_arr, toas_lch, phi_shifts_lch, (ch_idcs-tx_gap)[:, None], np.repeat(cch_sample, 3, axis=1), np.repeat(cch_grad, 3, axis=1), grad_step=phase_grad_step)
+                phi_shifts_rch = get_overall_phase_shift(data_arr, toas_rch, phi_shifts_rch, (ch_idcs+tx_gap)[:, None], np.repeat(cch_sample, 3, axis=1), np.repeat(cch_grad, 3, axis=1), grad_step=phase_grad_step)
                 toas_lch -= phi_shifts_lch/(2*np.pi*param.fs) * param.c
                 toas_rch -= phi_shifts_rch/(2*np.pi*param.fs) * param.c
 
@@ -440,7 +467,7 @@ for dat_num in range(1, cfg.dat_num):
                     phi_shift_pars = comp_pars[:, 5] - s[pts_mask_num, 5]
                     cch_sample_par = np.repeat(np.concatenate([cch_sample, cch_sample], axis=-1).flatten(), echo_per_sch)[pts_mask_num]
                     cch_grad_par = np.repeat(np.concatenate([cch_grad, cch_grad], axis=-1).flatten(), echo_per_sch)[pts_mask_num]
-                    phi_shift_pars = get_overall_phase_shift(data_arr, toa_pars, phi_shift_pars, par_ch_idcs, cfg.ch_gap, cch_sample_par, cch_grad_par)
+                    phi_shift_pars = get_overall_phase_shift(data_arr, toa_pars, phi_shift_pars, par_ch_idcs, cch_sample_par, cch_grad_par)
 
                     toa_pars -= phi_shift_pars/(2*np.pi*param.fs) * param.c
                     dist_pars = abs((toa_pars-nonplanar_tdx)/param.c-param.t0 - mu_pars) * param.fs
@@ -467,8 +494,8 @@ for dat_num in range(1, cfg.dat_num):
 
                     for k, pt in enumerate(pts):
                         
-                        plt.rcParams.update({'font.size': 18})
-                        fig = plt.figure(figsize=(30/3*1.4, 15/3))
+                        plt.rcParams.update({'font.size': 17})
+                        fig = plt.figure(figsize=(30/3*1.3, 15/3))
                         gs = gridspec.GridSpec(2, 2)
                         ax1 = plt.subplot(gs[:, 1])
                         ax2 = plt.subplot(gs[1, 0])
@@ -482,43 +509,21 @@ for dat_num in range(1, cfg.dat_num):
 
                         ax1.imshow(bmode, vmin=bmode_limits[0], vmax=bmode_limits[1], extent=extent, aspect=aspect**-1, cmap='gray', origin='lower')
                         ax1.set_facecolor('#000000')
-                        ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=5, label='Transducer plane')
-                        ax1.plot(gt_pt[0], gt_pt[1], 'rx', markersize=8, label='Ground truth')
-                        ax1.plot(pa_pt[0], pa_pt[1], 'b+', markersize=8, label='Radial symmetry')
+                        ax1.plot(gt_pt[0], gt_pt[1], 'rx', markersize=12, markeredgewidth=3, label='Ground Truth')
+                        #ax1.plot(pa_pt[0], pa_pt[1], 'b+', markersize=12, markeredgewidth=3, label='Radial symmetry')
+                        ax1.plot(pt[0], pt[1], '1', color='cyan', markersize=12+2, markeredgewidth=3, label='Intersection')
                         xzc = np.array([cen_cens[:, pts_mask_num][:, k][0], cen_cens[:, pts_mask_num][:, k][1]]) / cfg.num_scale
                         ax1.set_ylim([0, max(param.z)])#ax1.set_ylim([min(xzc), max(abs(xzc))])#
                         ax1.set_xlim([min(param.x), max(param.x)])#ax1.set_xlim([min(xzc), max(abs(xzc))])#
-                        ax1.set_xlabel('Horizontal domain $x$ [m]')
-                        ax1.set_ylabel('Vertical domain $z$ [m]')
-                        #ax1.yaxis.set_label_position("right")
-                        #ax1.yaxis.tick_right()
-
-                        ax1.plot(pt[0], pt[1], '1', color='cyan', markersize=8+2, label='Ellipse intersect.')
-
-                        axins1 = zoomed_inset_axes(ax1, zoom=6+2-0.25, loc='upper right')
-                        axins1.imshow(bmode, extent=extent, aspect=aspect**-1, origin='lower', cmap='gray')
-
-                        # plot zoomed frame
-                        w = 3.0*param.wavelength
-                        x1, x2, y1, y2 = gt_pt[0]-w, gt_pt[0]+w, gt_pt[1]-w*aspect, gt_pt[1]+w*aspect
-                        axins1.set_xlim(x1, x2)
-                        axins1.set_ylim(y1, y2)
-                        axins1.yaxis.get_major_locator().set_params(nbins=7)
-                        axins1.xaxis.get_major_locator().set_params(nbins=7)
-                        axins1.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
-                        mark_inset(ax1, axins1, loc1=2, loc2=3, fc="none", ec='orange')
-                        axins1.spines['bottom'].set_color('orange')
-                        axins1.spines['top'].set_color('orange') 
-                        axins1.spines['right'].set_color('orange')
-                        axins1.spines['left'].set_color('orange')
-
-                        #ax1.text(pt[0], pt[1], s=str(dist_pars[k]), color='w')
-                        ax1.legend()
+                        #ax1.set_xlabel('Horizontal domain $x$ [m]')
+                        #ax1.set_ylabel('Vertical domain $z$ [m]')
 
                         mu_cch = np.repeat(np.repeat(comps_cch[..., 1], echo_per_sch, axis=1), 2, axis=0).flatten()[pts_mask_num][k] * param.fs * cfg.enlarge_factor
                         
                         # when is index k for left channel and when for right? answer: pts_idcs
                         pts_idx = int(pts_idcs[k])
+
+                        axins1_ells = []
                         for j, (ax, cen, val, vec, color) in enumerate(zip([ax2, ax3], [cen_cens[:, pts_mask_num][:, k], adj_cens[:, pts_mask_num][:, k]], [cen_vals[:, pts_mask_num][:, k], adj_vals[:, pts_mask_num][:, k]], [cen_vecs[:, pts_mask_num][:, k], adj_vecs[:, pts_mask_num][:, k]], ['g']+[['royalblue', 'y'][pts_idx]])):
                             
                             el_idx = cch_idcs_flat[k] if j==0 else sch_idcs_flat[k]
@@ -535,7 +540,7 @@ for dat_num in range(1, cfg.dat_num):
                             vector_b = np.longdouble([0, -1])#np.longdouble([vsource[0], vsource[1]])
                             angle_deg = np.arccos(np.dot(vector_a, vector_b) / (np.linalg.norm(vector_a) * np.linalg.norm(vector_b))) / np.pi * 180
                             angle_deg *= np.sign(vsource[0]-cen[0]) * np.sign(vsource[0]+np.spacing(1)) #-1 *np.sign(param.xe[el_idx*cfg.ch_gap])
-                            ell = Ellipse(xy=xz, width=2*minor_axis_radius, height=2*major_axis_radius, angle=angle_deg, edgecolor=color, linewidth=3, fc='None', rasterized=True)
+                            ell = Ellipse(xy=xz, width=2*minor_axis_radius, height=2*major_axis_radius, angle=angle_deg, edgecolor=color, linewidth=2.5, fc='None', rasterized=True)
                             ax1.add_artist(ell)
 
                             # plot detected mu echoes param
@@ -552,27 +557,28 @@ for dat_num in range(1, cfg.dat_num):
                             ax.set_xlabel('Radial distance $r$ [samples]')
                             #ax.set_ylabel('Amplitude $A_{%s}(r)$ [a.u.]' % el_idx)
                             ax.set_ylabel('Amplitude [a.u.]')
-                            ax.set_xlim([mu_cch-500, mu_cch+500])
+                            ax.set_xlim([mu_cch-600, mu_cch+400]) if k == k_idx else None
                             ax.grid(True)
 
                             # plot rx trajectory
-                            ax1.plot([param.xe[el_idx*cfg.ch_gap], pt[0]], [0, pt[1]], color, linewidth=3, linestyle='dashed', label='Rx path ch. %s' % el_idx)
-                            ax1.legend(loc='lower right')
-                            axins1.plot([param.xe[el_idx*cfg.ch_gap], pt[0]], [0, pt[1]], color, linewidth=3, linestyle='dashed', label='Rx path ch. %s' % el_idx)
-                            
-                            axins1.plot(gt_pt[0], gt_pt[1], 'rx', markersize=15, label='Ground truth')
-                            axins1.plot(pa_pt[0], pa_pt[1], 'b+', markersize=15, label='Radial symmetry')   #str(pala_method)
-                            ell_axins1 = Ellipse(xy=xz, width=2*minor_axis_radius, height=2*major_axis_radius, angle=angle_deg, edgecolor=color, linewidth=3, fc='None', rasterized=True)
-                            axins1.add_artist(ell_axins1)
-                            axins1.plot(pt[0], pt[1], '1', color='cyan', markersize=15+2, label='Ellipse intersect.')
+                            ax1.plot([param.xe[el_idx*cfg.ch_gap], pt[0]], [0, pt[1]], color, linewidth=2.5, linestyle='dashed', label='Rx Path Ch. %s' % int(el_idx+1))
+
+                            #axins1.plot([param.xe[el_idx*cfg.ch_gap], pt[0]], [0, pt[1]], color, linewidth=3, linestyle='dashed', label='Rx path ch. %s' % int(el_idx+1))
+
+                            ell_axins1 = Ellipse(xy=xz, width=2*minor_axis_radius, height=2*major_axis_radius, angle=angle_deg, edgecolor=color, linewidth=2.5, fc='None', rasterized=True)
+                            axins1_ells.append(ell_axins1)
+                        
+                        # finish frame axis
+                        ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=8, label='Transducer Plane')
+                        ax1.legend(loc='lower right')
 
                         # plot components
                         ax2.plot(np.stack([mu_cch,]*2), [dmin, dmax], color='red', label='Time-of-Arrival')
                         ax3.plot(np.stack([(sch_comps[k] - sch_phi_shifts[k]/(2*np.pi*param.fs)) * param.fs * cfg.enlarge_factor,]*2), [dmin, dmax], color='red', label='Time-of-Arrival')
                         ax2.legend(loc='lower left')
                         ax3.legend(loc='lower left')
-                        ax2.set_title('Ch. 1')
-                        ax3.set_title('Ch. 0')
+                        ax2.set_title('Channel 2')
+                        ax3.set_title('Channel 1')
                         
                         # switch all ticks off
                         ax1.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
@@ -584,12 +590,44 @@ for dat_num in range(1, cfg.dat_num):
                         ax3.set_xlabel(xlabel='', visible=False)
 
                         #ax3.plot(np.stack([((toa_pars[k]-nonplanar_tdx)/param.c-param.t0) * param.fs * cfg.enlarge_factor,]*2), [min(result[par_ch_idcs[k], :]), max(result[par_ch_idcs[k], :])], color='pink', linestyle='dashdot', linewidth=2)
-                        plt.tight_layout()#pad=1.8)
-                        if k == 10:
+                        plt.tight_layout()#pad=1.8
+
+                        # plot zoomed frame
+                        w = 4.5*param.wavelength
+                        axins1 = zoomed_inset_axes(ax1, zoom=7, loc='upper right')
+                        axins1.imshow(bmode, extent=extent, aspect=aspect**-1, origin='lower', cmap='gray')
+                        x1, x2, y1, y2 = gt_pt[0]-w, gt_pt[0]+w, gt_pt[1]-w*aspect, gt_pt[1]+w*aspect
+                        axins1.set_xlim(x1, x2)
+                        axins1.set_ylim(y1, y2)
+                        axins1.yaxis.get_major_locator().set_params(nbins=7)
+                        axins1.xaxis.get_major_locator().set_params(nbins=7)
+                        axins1.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
+                        mark_inset(ax1, axins1, loc1=2, loc2=3, fc="none", ec='orange', lw=2)
+                        
+                        axins1.plot(gt_pt[0], gt_pt[1], 'rx', markersize=17, markeredgewidth=4, label='Ground truth')
+                        #axins1.plot(pa_pt[0], pa_pt[1], 'b+', markersize=17, markeredgewidth=4, label='Radial symmetry')   #str(pala_method)
+                        for ell in axins1_ells:
+                            axins1.add_artist(ell)
+                        axins1.plot(pt[0], pt[1], '1', color='cyan', markersize=17+2, markeredgewidth=4, label='Intersection')
+                            
+                        # style for frame
+                        sides_list = ['bottom', 'top', 'right', 'left']
+                        [axins1.spines[s].set_color('orange') for s in sides_list]
+                        [axins1.spines[s].set_linewidth(2) for s in sides_list]
+
+                        # change order in legend
+                        handles, labels = ax1.get_legend_handles_labels()
+                        handles = [handles[0], handles[1], handles[3], handles[2], handles[4]]
+                        labels = [labels[0], labels[1], labels[3], labels[2], labels[4]]
+                        ax1.legend(handles,labels, loc='lower right')
+
+                        if k == k_idx:
                             fig.patch.set_alpha(0)  # transparency
                             plt.savefig('./components_plot.pdf', format='pdf', backend='pdf', dpi=300, transparent=False)
                             print('saved')
+                            plt.show()
                         #plt.show()
+                        plt.close()
 
             all_pts = np.vstack(all_pts_list)
             rej_pts = np.vstack(rej_pts_list)
@@ -654,39 +692,103 @@ for dat_num in range(1, cfg.dat_num):
             if cfg.save_opt: np.savetxt((output_path / ('gtru_frame_%s_%s.csv' % (str(dat_num).zfill(3), str(frame_idx).zfill(4)))), gtru_arr, delimiter=',')
 
             if cfg.plt_cluster_opt:
+                plt.rcParams.update({'font.size': 17})
+                fig = plt.figure(figsize=(30/3*2, 15/3))
+                gs = gridspec.GridSpec(1, 3)
                 plt.rcParams.update({'font.size': 18})
-                fig = plt.figure(figsize=(30/3*1.45, 15/3))
+                fig = plt.figure(figsize=(30/3*1.4, 15/3))
                 gs = gridspec.GridSpec(1, 2)
+                plt.rcParams.update({'font.size': 17})
+                fig = plt.figure(figsize=(30/3*2, 15/3))
+                gs = gridspec.GridSpec(1, 3)
+                plt.rcParams.update({'font.size': 18})
+                fig = plt.figure(figsize=(30/3*1.4, 15/3))
+                gs = gridspec.GridSpec(1, 2)
+                plt.rcParams.update({'font.size': 17})
+                fig = plt.figure(figsize=(30/3*2, 15/3))
+                gs = gridspec.GridSpec(1, 3)
                 ax1 = plt.subplot(gs[0, 0])
                 ax2 = plt.subplot(gs[0, 1])
+                ax3 = plt.subplot(gs[0, 2])
+                ax3 = plt.subplot(gs[0, 2])
+                ax3 = plt.subplot(gs[0, 2])
 
                 ax1.imshow(bmode, vmin=bmode_limits[0], vmax=bmode_limits[1], extent=extent, aspect=aspect**-1, origin='lower', cmap='gray')
                 ax1.set_facecolor('#000000')
-                ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=5, label='Transducer plane')
-                ax1.plot(all_pts[:, 0], all_pts[:, 1], 'gx', label='all points', alpha=.2)
-                ax1.plot(rej_pts[:, 0], rej_pts[:, 1], '.', color='gray', label='rejected points', alpha=.2)
+                #ax1.plot(rej_pts[:, 0], rej_pts[:, 1], '.', color='gray', label='rejected points', alpha=.2)
                 #[ax1.text(rej_pts[i, 0], rej_pts[i, 1]+np.random.rand(1)*param.wavelength, s=str(rej_pts[i, 2]), color='orange') for i in range(len(rej_pts))]
-                ax1.plot((ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength, 'bx', label=pala_method)
-                ax1.plot(xpos[~np.isnan(xpos)], zpos[~np.isnan(zpos)], 'rx', label='ground-truth')
-                ax1.plot(np.array(reduced_pts)[:, 0], np.array(reduced_pts)[:, 1], 'c+', label='selected')
+                ax1.plot(xpos[~np.isnan(xpos)], zpos[~np.isnan(zpos)], marker='x', color='red', markersize=16, markeredgewidth=3, linestyle='', label='Ground Truth')
+                #ax1.plot((ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength, marker='+', color='blue', markersize=12, markeredgewidth=3, linestyle='', label='Radial symmetry')
+                ax1.plot(all_pts[:, 0], all_pts[:, 1], marker='1', color='cyan', markersize=12+4, markeredgewidth=3, linestyle='', label='Intersections', alpha=.6)
+                ax1.plot(np.array(reduced_pts)[:, 0], np.array(reduced_pts)[:, 1], marker='.', color='violet', markersize=12, markeredgewidth=3, linestyle='', label='Cluster Centroid')
+                ax1.plot([min(param.x), max(param.x)], [0, 0], color='gray', linewidth=8)   #, label='Transducer plane'
                 ax1.set_ylim([0, max(param.z)])
                 ax1.set_xlim([min(param.x), max(param.x)])
-                ax1.set_xlabel('Lateral domain $x$ [m]')
-                ax1.set_ylabel('Axial distance $z$ [m]')
                 ax1.legend()
+                #ax1.set_xlabel('Horizontal domain $x$ [m]')
+                #ax1.set_ylabel('Vertical domain $z$ [m]')
 
                 ax2.imshow(np.abs(iq_mat['IQ'][..., frame_idx]), cmap='gray')
-                ax2.plot(xpos[~np.isnan(xpos)]/param.wavelength-PData['Origin'][0], zpos[~np.isnan(zpos)]/param.wavelength-PData['Origin'][2], 'rx', label='ground-truth')
-                ax2.plot(np.array(reduced_pts)[:, 0]/param.wavelength-PData['Origin'][0], np.array(reduced_pts)[:, 1]/param.wavelength-PData['Origin'][2], 'c+', label='selected')
-                ax2.plot(ref_xpos-PData['Origin'][0], ref_zpos-PData['Origin'][2], 'bx', label=pala_method)
+                ax2.plot(xpos[~np.isnan(xpos)]/param.wavelength-PData['Origin'][0], zpos[~np.isnan(zpos)]/param.wavelength-PData['Origin'][2], 'rx', linestyle='', label='Ground Truth')
+                ax2.plot(ref_xpos-PData['Origin'][0], ref_zpos-PData['Origin'][2], 'bx', label='Radial Symmetry')
+                ax2.plot(np.array(reduced_pts)[:, 0]/param.wavelength-PData['Origin'][0], np.array(reduced_pts)[:, 1]/param.wavelength-PData['Origin'][2], marker='1', color='cyan', linestyle='', label='Intersections')
                 ax2.legend()
-                #for i, l in enumerate(labels_unique):
-                #    if sum(l==labels) > cfg.cluster_number: 
-                #        ax1.plot(all_pts[:, 0][l==labels], all_pts[:, 1][l==labels], marker='.', linestyle='', color=['brown', 'pink', 'yellow', 'white', 'gray', 'violet', 'green', 'blue'][i%8])
-                for i, tx_gap_pts in enumerate(all_pts_list):
-                    ax1.plot(tx_gap_pts[:, 0], tx_gap_pts[:, 1], marker='.', linestyle='', color=['brown', 'pink', 'yellow', 'white', 'gray', 'cyan', 'green', 'blue'][i%8], label=str(cfg.tx_gaps[i]))
-                ax1.legend()
-                plt.savefig('./cluster_plot.pdf', format='pdf', backend='pdf', dpi=300, transparent=True)
+
+                # switch all ticks off
+                ax1.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
+                ax2.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
+
+                plt.tight_layout()
+
+                # plot zoomed frame
+                gt_pt_idx = 9-1
+                gt_pt = np.array([xpos[~np.isnan(xpos)], zpos[~np.isnan(zpos)]])[:, gt_pt_idx]
+                pa_pt_idx = np.argmin(abs(np.array([(ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength]) - gt_pt[:, None]).sum(0))
+                pa_pt = np.array([(ref_xpos)*param.wavelength, (ref_zpos)*param.wavelength])[:, pa_pt_idx]
+                pt_idx = np.argmin(abs(np.array(reduced_pts).T - gt_pt[:, None]).sum(0))
+                pt = np.array(reduced_pts)[pt_idx, :].T
+
+                w = 3.5*param.wavelength
+                axins1 = zoomed_inset_axes(ax1, zoom=6+4, loc='upper right')
+                axins1.imshow(bmode, extent=extent, aspect=aspect**-1, origin='lower', cmap='gray')
+                x1, x2, y1, y2 = gt_pt[0]-w, gt_pt[0]+w, gt_pt[1]-w*aspect, gt_pt[1]+w*aspect
+                axins1.set_xlim(x1, x2)
+                axins1.set_ylim(y1, y2)
+                axins1.yaxis.get_major_locator().set_params(nbins=7)
+                axins1.xaxis.get_major_locator().set_params(nbins=7)
+                axins1.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
+                mark_inset(ax1, axins1, loc1=2, loc2=4, fc="none", ec='orange', lw=2)
+                
+                axins1.plot(gt_pt[0], gt_pt[1], 'rx', markersize=15+6, markeredgewidth=4, label='Ground Truth')
+                #axins1.plot(pa_pt[0], pa_pt[1], 'b+', markersize=15, markeredgewidth=4, label='Radial Symmetry')
+                axins1.plot(all_pts[:, 0], all_pts[:, 1], marker='1', color='cyan', markersize=15+2, markeredgewidth=4, linestyle='', label='Intersections', alpha=.3)
+                axins1.plot(pt[0], pt[1], '.', color='violet', markersize=15+2, markeredgewidth=4, label='Cluster Centroid')
+
+                # style for frame
+                sides_list = ['bottom', 'top', 'right', 'left']
+                [axins1.spines[s].set_color('orange') for s in sides_list]
+                [axins1.spines[s].set_linewidth(2) for s in sides_list]
+
+                w = 6*param.wavelength
+                ax3.imshow(bmode, extent=extent, aspect=aspect**-1, origin='lower', cmap='gray')
+                x1, x2, y1, y2 = gt_pt[0]-w, gt_pt[0]+w, gt_pt[1]-w*aspect, gt_pt[1]+w*aspect
+                ax3.set_xlim(x1, x2)
+                ax3.set_ylim(y1, y2)
+                ax3.yaxis.get_major_locator().set_params(nbins=7)
+                ax3.xaxis.get_major_locator().set_params(nbins=7)
+                ax3.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
+                
+                ax3.plot(gt_pt[0], gt_pt[1], 'rx', markersize=19+4, markeredgewidth=3, label='Ground truth')
+                #ax3.plot(pa_pt[0], pa_pt[1], 'b+', markersize=19, markeredgewidth=3, label='Radial symmetry')
+                ax3.plot(all_pts[:, 0], all_pts[:, 1], marker='1', color='cyan', markersize=19+5, markeredgewidth=3, linestyle='', label='Intersections', alpha=.3)
+                ax3.plot(pt[0], pt[1], '.', color='violet', markersize=19, markeredgewidth=3, label='Cluster centroid')
+                ax3.legend()
+
+                #for i, tx_gap_pts in enumerate(all_pts_list):
+                    #ax1.plot(tx_gap_pts[:, 0], tx_gap_pts[:, 1], marker='.', linestyle='', color=['brown', 'pink', 'yellow', 'white', 'gray', 'cyan', 'green', 'blue'][i%8], label=str(cfg.tx_gaps[i]))
+                    #axins1.plot(tx_gap_pts[:, 0], tx_gap_pts[:, 1], marker='.', linestyle='', color=['brown', 'pink', 'yellow', 'white', 'gray', 'cyan', 'green', 'blue'][i%8], label=str(cfg.tx_gaps[i]))
+                fig.patch.set_alpha(0)  # transparency
+                plt.savefig('./cluster_plot.pdf', format='pdf', backend='pdf', dpi=300, transparent=False)
                 plt.show()
 
 # total errors over all frames
@@ -698,6 +800,10 @@ pulm_rmse_std = np.std(pace_rmses[~np.isnan(pace_rmses)])
 pala_rmse_std = np.std(pala_rmses[~np.isnan(pala_rmses)])
 pulm_jaccard_total = np.nansum(np.array(acc_pace_errs)[:, 2])/np.nansum(np.array(acc_pace_errs)[:, 2]+np.array(acc_pace_errs)[:, 3]+np.array(acc_pace_errs)[:, 4]) * 100
 pala_jaccard_total = np.nansum(np.array(acc_pala_errs)[:, 2])/np.nansum(np.array(acc_pala_errs)[:, 2]+np.array(acc_pala_errs)[:, 3]+np.array(acc_pala_errs)[:, 4]) * 100
+pulm_precision_total = np.nansum(np.array(acc_pace_errs)[:, 2])/(np.nansum(np.array(acc_pace_errs)[:, 3])+np.nansum(np.array(acc_pace_errs)[:, 2])) * 100
+pala_precision_total = np.nansum(np.array(acc_pala_errs)[:, 2])/(np.nansum(np.array(acc_pala_errs)[:, 3])+np.nansum(np.array(acc_pala_errs)[:, 2])) * 100
+pulm_recall_total = np.nansum(np.array(acc_pace_errs)[:, 2])/(np.nansum(np.array(acc_pace_errs)[:, 4])+np.nansum(np.array(acc_pace_errs)[:, 2])) * 100
+pala_recall_total = np.nansum(np.array(acc_pala_errs)[:, 2])/(np.nansum(np.array(acc_pala_errs)[:, 4])+np.nansum(np.array(acc_pala_errs)[:, 2])) * 100
 print('Total mean confidence: %s' % round(np.nanmean(np.array(acc_pace_errs)[:, -1]), 4))
 print('Accumulated PULM RMSE: %s, Jacc.: %s' % (pulm_rmse_mean, pulm_jaccard_total))
 print('Accumulated PALA RMSE: %s, Jacc.: %s' % (pala_rmse_mean, pala_jaccard_total))
@@ -724,8 +830,14 @@ if cfg.logging:
     wandb.summary['PALA/TotalRMSEstd'] = pala_rmse_std
     wandb.summary['PULM/TotalJaccard'] = pulm_jaccard_total
     wandb.summary['PALA/TotalJaccard'] = pala_jaccard_total
+    wandb.summary['PULM/TotalPrecision'] = pulm_precision_total
+    wandb.summary['PALA/TotalPrecision'] = pala_precision_total
+    wandb.summary['PULM/TotalRecall'] = pulm_recall_total
+    wandb.summary['PALA/TotalRecall'] = pala_recall_total
     wandb.summary['PULM/TotalConfidence'] = np.nanmean(np.array(acc_pace_errs)[:, -1])
     wandb.save(str(output_path / 'logged_errors.csv'))
     if cfg.save_opt:
         wandb.summary['PALA/SSIM'] = structural_similarity(gtru_ulm_img, pala_ulm_img, channel_axis=2)
+        wandb.summary['PALA/PSNR'] = peak_signal_noise_ratio(gtru_ulm_img, pala_ulm_img)
         wandb.summary['PULM/SSIM'] = structural_similarity(gtru_ulm_img, pace_ulm_img, channel_axis=2)
+        wandb.summary['PULM/PSNR'] = peak_signal_noise_ratio(gtru_ulm_img, pace_ulm_img)

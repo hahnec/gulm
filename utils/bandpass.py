@@ -2,7 +2,7 @@ import numpy as np
 from scipy import signal
 
 
-def bandpass_filter(channel_data, freq_cen=None, freq_smp=None):
+def bandpass_filter(channel_data, freq_cen=None, freq_smp=None, sw=0.5):
     """
     automatic bandpass-filtering around prevalent frequency component
     """
@@ -15,7 +15,6 @@ def bandpass_filter(channel_data, freq_cen=None, freq_smp=None):
         return channel_data
 
     # set cut-off frequencies (where amplitude drops by 3dB)
-    sw = 0.5
     lo, hi = np.array([sw, (2-sw)]) * freq_cen
     lo, hi = max(0, lo), min(2*freq_cen-np.spacing(1), hi)
 
