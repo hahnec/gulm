@@ -1,35 +1,37 @@
-device: 'cpu' #'cuda'  #
-ch_gap: 8 #16 #
-frame_batch_size: 1
-enlarge_factor: 60
-cluster_number: 4
+device: 'cuda'  #'cpu' #
+ch_gap: 1 # 16 #8 #4 #2 #
+frame_batch_size: 2 #20 #1 #1 #10
+enlarge_factor: 55 #55 #60 #
+cluster_number: 64 #2 #4 #14 #32 #64 #8 #12 #2 #
 comp_max: 8
 max_iter: 2
 wave_idx: 1 #1 #0
 num_scale: 1e12 #1e6 #
-tx_gaps: [1, 2, 3, 4] #, 5, 6, 8, 10, 12]
-frame_num: 10
-dat_num: 2
+tx_gaps: [1,2,4,6,8,10,12] #[1, 2, 3] #[1,2,4,6,8] #, [1, 2, 4, 6, 8, 10, 12] #
+frame_num: Null
+dat_start: 1 #6 #
+dat_num: 16
 intersect_method: 'gt'
 phase_refinement_opt: True
 radial_offset_method: 'off'
 parity_opt: True
-echo_threshold: 0.15 #0.0825 #0.2 #
+echo_threshold: 0.175 #0.0825 #0.15  #2 #0.15 #
 dist_par_threshold: 0.5
 shift_factor: 2.5e-5
 tracking: Null #'hungarian'
 gamma: .9
-clutter_db: -30 #0 #
+clutter_db: 0 #-50 #
+noise_multi: 1 #4 #12 #8
 
-logging: False
+logging: True
 plt_comp_opt: False
 plt_cluster_opt: False
 plt_frame_opt: False
-save_opt: False
+save_opt: True
 
 data_path: PALA_data_InSilicoFlow/
 invivo_path: Rat18_2D_InVivoBrain/
 ubx_dir: /storage/homefs/ch21z139/PALA_dataset/${data_path}
 loc_dir: /home/chris/LocalDatasets/03_PALA/${data_path}
 map_dir: /home/chris/UbelixWorkspaces/artorg_aimi/ws_00000/chris/
-data_dir: ${loc_dir}
+data_dir: ${ubx_dir}

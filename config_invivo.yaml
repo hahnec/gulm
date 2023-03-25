@@ -1,28 +1,29 @@
 device: 'cuda'  #'cpu' #
-ch_gap: 2 #8 #16 #
-frame_batch_size: 1
-enlarge_factor: 60
-cluster_number: 4
+ch_gap: 2 #2 #16 #
+frame_batch_size: 5 #40 #
+enlarge_factor: 60 #5 #60
+cluster_number: 12 #24 #12 #4 #5 #3 # 
 comp_max: 8
-max_iter: 2
+max_iter: 3
 wave_idx: 1 #1 #0
 num_scale: 1e12 #1e6 #
-tx_gaps: [1, 2, 3, 4] #, 5, 6, 8, 10, 12]
-frame_num: 10
-dat_num: 2
+tx_gaps: [1, 2, 3, 4, 5, 6, 8] #, 6, 5, 6, 8, 10, 12]
+frame_num: Null
+dat_start: 1 #120 #52
+dat_num: 240
 intersect_method: 'gt'
 phase_refinement_opt: True
 radial_offset_method: 'off'
 parity_opt: True
-echo_threshold: 0.15 #0.0825 #0.2 #
+echo_threshold: 0.007 #0.12 #0.008 #0.0825 #1e-4 #0.15 #0.2 #
 dist_par_threshold: 0.5
 shift_factor: 2.5e-5
-tracking: Null #'hungarian'
+tracking: Null #'hungarian' #
 gamma: .9
-pow_law_opt: True
-svd_opt: False
+pow_law_opt: False
+temp_filter_opt: True
 
-logging: False
+logging: True
 plt_comp_opt: False
 plt_cluster_opt: False
 plt_frame_opt: False

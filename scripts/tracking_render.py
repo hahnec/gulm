@@ -16,7 +16,7 @@ cfg = OmegaConf.load(str(script_path.parent / 'config_invivo.yaml'))
 # override config with CLI
 cfg = OmegaConf.merge(cfg, OmegaConf.from_cli())
 
-run_name = 'kind-gorge-589'    #'twilight-universe-545' #'bright-grass-569'   #
+run_name = 'azure-glade-751' #'kind-gorge-589'    #'twilight-universe-545' #'bright-grass-569'   #
 output_path = Path(cfg.data_dir) / 'Results' / ('invivo_frames_'+run_name)
 
 frames = load_ulm_data(data_path=str(output_path), expr='pace')
