@@ -45,6 +45,9 @@ def bf_das(rf_iq, param, x, z):
     if not hasattr(param, 'compound'):
         param.compound = 1
 
+    if not param.compound:
+        iq_frame = np.repeat(iq_frame[None, ...], 3, axis=0)
+
     # iterate over number of transmitted angles
     for k in range(len(param.angles_list)):
         param.theta = param.angles_list[k]
@@ -55,7 +58,7 @@ def bf_das(rf_iq, param, x, z):
             iq_frame += bf_das_rx(rf_angle, param, x, z)
         else:
             # attach receiver delay and sum
-            iq_frame[..., k] = bf_das_rx(rf_angle, param, x, z)
+            iq_frame[k, ...] = bf_das_rx(rf_angle, param, x, z)
 
     return iq_frame
 
