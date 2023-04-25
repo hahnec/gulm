@@ -615,7 +615,7 @@ for dat_num in range(cfg.dat_start, cfg.dat_num+1):
             if len(cluster_centers) == len(counts):
                 reduced_pts = cluster_centers[counts>cfg.cluster_number, :]
             elif len(cluster_centers) > len(counts):
-                t = np.bincount(co.labels_[co.labels_!=-1])
+                t = np.bincount(ms.labels_[ms.labels_!=-1])
                 idcs = np.argwhere(t!=0).squeeze()
                 reduced_pts = cluster_centers[idcs, :][counts>cfg.cluster_number, :]
 
