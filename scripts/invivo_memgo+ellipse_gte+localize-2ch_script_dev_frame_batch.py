@@ -607,20 +607,17 @@ for dat_num in range(cfg.dat_start, cfg.dat_num+1):
                 np.savetxt((output_path / ('pace_frame_%s_%s.csv' % (str(dat_num).zfill(3), str(frame_idx).zfill(4)))), np.array([]), delimiter=',')
                 continue
 
-            labels_unique = np.unique(labels)
+            labels_unique, counts = np.unique(ms.labels_[ms.labels_ != -1], return_counts=True)
             n_clusters_ = len(labels_unique)
 
             print("number of estimated clusters : %d" % n_clusters_)
-
-            reduced_pts = []
-            for i, l in enumerate(labels_unique):
-                if l == -1:
-                    continue
-                # select point closest to the mean
-                label_xy_mean = np.mean(all_pts[l==labels], axis=0)[:2]
-                idx = np.argmin(np.sum((all_pts[l==labels][:, :2] - label_xy_mean)**2, axis=-1))
-
-                if sum(l==labels) > cfg.cluster_number: reduced_pts.append(label_xy_mean)#all_pts[l==labels][idx]) #
+            
+            if len(cluster_centers) == len(counts):
+                reduced_pts = cluster_centers[counts>cfg.cluster_number, :]
+            elif len(cluster_centers) > len(counts):
+                t = np.bincount(co.labels_[co.labels_!=-1])
+                idcs = np.argwhere(t!=0).squeeze()
+                reduced_pts = cluster_centers[idcs, :][counts>cfg.cluster_number, :]
 
             print('Frame time: %s' % str(time.perf_counter()-start))
 
@@ -652,7 +649,7 @@ for dat_num in range(cfg.dat_start, cfg.dat_num+1):
                 ax1.legend()
 
                 ax2.plot(rs_pts_frame[:, 1], rs_pts_frame[:, 0], 'b+', label='RS', alpha=1)
-                ax2.imshow(iq_mat[..., frame_idx], vmin=bmode_limits[0]-20, vmax=bmode_limits[1]-20, interpolation='none', origin='lower', cmap='gray')
+                ax2.imshow(iq_mat[..., frame_idx], vmin=bmode_limits[0], vmax=bmode_limits[1], interpolation='none', origin='lower', cmap='gray')
                 #if len(reduced_pts)>0: ax2.plot(np.array(reduced_pts)[:, 0]/param.wavelength+59, np.array(reduced_pts)[:, 1]/param.wavelength, 'c+', label='selected')
                 if len(reduced_pts)>0: ax2.plot(np.array(reduced_pts)[:, 0]/param.wavelength+63, np.array(reduced_pts)[:, 1]/param.wavelength-25, 'c+', label='selected')
 

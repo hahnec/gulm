@@ -636,20 +636,17 @@ for dat_num in range(cfg.dat_start, cfg.dat_num):
             labels = ms.labels_
             cluster_centers = ms.cluster_centers_
 
-            labels_unique = np.unique(labels)
+            labels_unique, counts = np.unique(ms.labels_[ms.labels_ != -1], return_counts=True)
             n_clusters_ = len(labels_unique)
 
             print("number of estimated clusters : %d" % n_clusters_)
-
-            reduced_pts = []
-            for i, l in enumerate(labels_unique):
-                if l == -1:
-                    continue
-                # select point closest to the mean
-                label_xy_mean = np.mean(all_pts[l==labels], axis=0)[:2]
-                idx = np.argmin(np.sum((all_pts[l==labels][:, :2] - label_xy_mean)**2, axis=-1))
-
-                if sum(l==labels) > cfg.cluster_number: reduced_pts.append(label_xy_mean)#all_pts[l==labels][idx]) #
+            
+            if len(cluster_centers) == len(counts):
+                reduced_pts = cluster_centers[counts>cfg.cluster_number, :]
+            elif len(cluster_centers) > len(counts):
+                t = np.bincount(co.labels_[co.labels_!=-1])
+                idcs = np.argwhere(t!=0).squeeze()
+                reduced_pts = cluster_centers[idcs, :][counts>cfg.cluster_number, :]
 
             print('Frame time: %s' % str(time.perf_counter()-start))
 
