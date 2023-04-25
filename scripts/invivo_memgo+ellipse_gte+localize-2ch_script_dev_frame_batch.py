@@ -133,7 +133,7 @@ for dat_num in range(cfg.dat_start, cfg.dat_num+1):
     seq_fname = rel_path / 'Rat18_2D_PALA_0323_163558_sequence.mat'
     seq_mat = scipy.io.loadmat(seq_fname)
 
-    rf_fname = rel_path / 'RFdata' / ('Rat18_2D_PALA_0323_163558RF'+str(dat_num).zfill(3)+'.mat')
+    rf_fname = rel_path / 'RF' / ('Rat18_2D_PALA_0323_163558RF'+str(dat_num).zfill(3)+'.mat')
     rf_mat = scipy.io.loadmat(rf_fname)
 
     iq_fname = rel_path / 'IQ' / ('PALA_InVivoRatBrain_'+str(dat_num).zfill(3)+'.mat')
