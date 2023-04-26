@@ -319,6 +319,8 @@ for dat_num in range(cfg.dat_start, cfg.dat_num+1):
             data_arr = data_batch[frame_batch_idx, ...]
             conf = conf_batch[frame_batch_idx, ...]
             echo_list = echo_batch[frame_batch_idx, ...]
+            # exclude echoes outside range
+            echo_list[echo_list[..., 1] > len(t)-1, 1] = len(t)-1
 
             # beamforming
             if cfg.plt_comp_opt or cfg.plt_cluster_opt:
