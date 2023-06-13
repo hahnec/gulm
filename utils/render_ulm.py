@@ -47,7 +47,7 @@ def render_ulm(frames, tracking=None, expr='', plot_opt=False, cmap_opt=False, u
     if srgb_opt: ulm_img = srgb_conv(normalize(ulm_img))
 
     # color mapping
-    ulm_img = img_color_map(img=normalize(ulm_img), cmap='inferno')
+    ulm_img = img_color_map(img=normalize(ulm_img), cmap='hot')
     vel_map = img_color_map(img=normalize(vel_map), cmap='plasma')
 
     if plot_opt:
