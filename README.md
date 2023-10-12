@@ -5,7 +5,7 @@
 ### Overview
 
 <a href="https://link.springer.com/chapter/10.1007/978-3-031-43999-5_21">
-    <img src="https://github.com/hahnec/gulm/blob/master/docs/gulm_concept.svg" width="700" scale="100%">
+    <img src="https://github.com/hahnec/gulm/blob/master/docs/gulm_concept.svg" width="750" scale="100%">
 </a>
 
 ### Datasets
@@ -15,12 +15,6 @@
 *In silico* (training+inference): https://doi.org/10.5281/zenodo.4343435
 <br>
 <br>
-
-### Result
-
-<a href="https://link.springer.com/chapter/10.1007/978-3-031-43999-5_21">
-    <img src="https://github.com/hahnec/gulm/blob/master/docs/gulm_rat-18.png" width="700" scale="100%">
-</a>
 
 ### Citation
 
