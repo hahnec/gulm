@@ -5,7 +5,7 @@ python3 -m venv venv
 source venv/bin/activate
 python3 -m pip install --upgrade pip
 python3 -m pip install -r requirements.txt
-git clone --recurse-submodules git@github.com:hahnec/multimodal_emg_private multimodal_emg_repo
+git clone --recurse-submodules git@github.com:hahnec/multimodal_emg multimodal_emg_repo
 git clone --recurse-submodules git@github.com:hahnec/simple_tracker simple_tracker_repo
 python3 -m pip install -r multimodal_emg_repo/requirements.txt
 
